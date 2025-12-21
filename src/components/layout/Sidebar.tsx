@@ -9,7 +9,8 @@ import {
   Users,
   Building2,
   FileText,
-  Leaf
+  Leaf,
+  Database
 } from 'lucide-react';
 
 const navItems = [
@@ -22,6 +23,7 @@ const navItems = [
   { to: '/customers', icon: Users, label: 'Customers' },
   { to: '/sellers', icon: Building2, label: 'Sellers' },
   { to: '/reports', icon: FileText, label: 'Reports' },
+  { to: '/backup', icon: Database, label: 'Backup & Restore' },
 ];
 
 export function Sidebar() {
