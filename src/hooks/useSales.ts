@@ -70,6 +70,7 @@ interface CreateSaleData {
   discount_amount: number;
   tax_percent: number;
   notes?: string;
+  manual_invoice_number?: string; // Optional manual invoice number
   items: {
     product_id: string;
     production_batch_id?: string;
@@ -84,11 +85,16 @@ export function useCreateSale() {
   
   return useMutation({
     mutationFn: async (data: CreateSaleData) => {
-      // Generate invoice number
-      const { data: invoiceNumber, error: invoiceError } = await supabase
-        .rpc('generate_invoice_number');
+      // Use manual invoice number if provided, otherwise auto-generate
+      let invoiceNumber = data.manual_invoice_number?.trim();
       
-      if (invoiceError) throw invoiceError;
+      if (!invoiceNumber) {
+        const { data: generatedNumber, error: invoiceError } = await supabase
+          .rpc('generate_invoice_number');
+        
+        if (invoiceError) throw invoiceError;
+        invoiceNumber = generatedNumber;
+      }
       
       // Calculate totals
       let subtotal = 0;

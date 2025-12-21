@@ -10,9 +10,10 @@ import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
 import { useSales, useCreateSale, useProductBatches } from '@/hooks/useSales';
 import { useSalePayments, useAddPayment, useDeletePayment, PAYMENT_METHODS } from '@/hooks/useSalePayments';
+import { useProcessSaleReturn, RETURN_REASONS } from '@/hooks/useSalesReturns';
 import { useProducts } from '@/hooks/useProducts';
 import { useCustomers } from '@/hooks/useCustomers';
-import { Plus, X, FileText, CreditCard, Package, Printer, Trash2, Eye } from 'lucide-react';
+import { Plus, X, FileText, CreditCard, Package, Printer, Trash2, Eye, RotateCcw, AlertCircle } from 'lucide-react';
 import { useState, useRef } from 'react';
 import { format } from 'date-fns';
 import { InvoicePrint } from '@/components/InvoicePrint';
@@ -68,6 +69,7 @@ function CreateSaleDialog({ onClose }: { onClose: () => void }) {
   const [discountAmount, setDiscountAmount] = useState(0);
   const [taxPercent, setTaxPercent] = useState(0);
   const [notes, setNotes] = useState('');
+  const [manualInvoiceNumber, setManualInvoiceNumber] = useState('');
   const [items, setItems] = useState<SaleItemForm[]>([]);
 
   const addItem = () => {
@@ -113,6 +115,7 @@ function CreateSaleDialog({ onClose }: { onClose: () => void }) {
       discount_amount: discountAmount,
       tax_percent: taxPercent,
       notes: notes || undefined,
+      manual_invoice_number: manualInvoiceNumber || undefined,
       items: validItems
     });
     onClose();
@@ -120,7 +123,16 @@ function CreateSaleDialog({ onClose }: { onClose: () => void }) {
 
   return (
     <form onSubmit={handleSubmit} className="space-y-4 max-h-[80vh] overflow-y-auto">
-      <div className="grid grid-cols-2 gap-4">
+      <div className="grid grid-cols-3 gap-4">
+        <div className="space-y-2">
+          <Label>Invoice # (Optional)</Label>
+          <Input 
+            value={manualInvoiceNumber} 
+            onChange={(e) => setManualInvoiceNumber(e.target.value)}
+            placeholder="Auto-generate if empty"
+          />
+          <p className="text-xs text-muted-foreground">Leave blank for auto: #GLL-YYYY-MM-DD-XXXX</p>
+        </div>
         <div className="space-y-2">
           <Label>Customer (Optional)</Label>
           <Select value={customerId} onValueChange={(v) => setCustomerId(v === 'walk-in' ? '' : v)}>
@@ -296,6 +308,7 @@ function SaleDetailsDialog({ saleId, onClose }: { saleId: string; onClose: () =>
   const { data: payments } = useSalePayments(saleId);
   const addPayment = useAddPayment();
   const deletePayment = useDeletePayment();
+  const processReturn = useProcessSaleReturn();
   const printRef = useRef<HTMLDivElement>(null);
 
   // Payment form state
@@ -304,6 +317,14 @@ function SaleDetailsDialog({ saleId, onClose }: { saleId: string; onClose: () =>
   const [paymentMethod, setPaymentMethod] = useState('cash');
   const [paymentDate, setPaymentDate] = useState(format(new Date(), 'yyyy-MM-dd'));
   const [paymentNote, setPaymentNote] = useState('');
+
+  // Return form state
+  const [showReturnForm, setShowReturnForm] = useState(false);
+  const [returnItemId, setReturnItemId] = useState('');
+  const [returnQty, setReturnQty] = useState(0);
+  const [returnReason, setReturnReason] = useState('customer_return');
+  const [restoreToStock, setRestoreToStock] = useState(false);
+  const [returnNotes, setReturnNotes] = useState('');
 
   const handlePrint = useReactToPrint({
     contentRef: printRef,
@@ -330,6 +351,26 @@ function SaleDetailsDialog({ saleId, onClose }: { saleId: string; onClose: () =>
     setPaymentAmount(0);
     setPaymentMethod('cash');
     setPaymentNote('');
+  };
+
+  const handleProcessReturn = async () => {
+    if (!returnItemId || returnQty <= 0) return;
+    
+    await processReturn.mutateAsync({
+      sale_id: saleId,
+      sale_item_id: returnItemId,
+      quantity: returnQty,
+      reason: returnReason,
+      restore_to_stock: restoreToStock,
+      notes: returnNotes || undefined
+    });
+    
+    setShowReturnForm(false);
+    setReturnItemId('');
+    setReturnQty(0);
+    setReturnReason('customer_return');
+    setRestoreToStock(false);
+    setReturnNotes('');
   };
 
   const getStatusBadge = () => {
@@ -374,30 +415,117 @@ function SaleDetailsDialog({ saleId, onClose }: { saleId: string; onClose: () =>
         </div>
 
         {/* Items */}
-        <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead>Product</TableHead>
-              <TableHead>Batch</TableHead>
-              <TableHead className="text-right">Qty</TableHead>
-              <TableHead className="text-right">Price</TableHead>
-              <TableHead className="text-right">Total</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {sale.items?.map((item) => (
-              <TableRow key={item.id}>
-                <TableCell className="font-medium">{item.product?.name}</TableCell>
-                <TableCell className="text-muted-foreground">
-                  {item.production_batch?.batch_number || '-'}
-                </TableCell>
-                <TableCell className="text-right">{item.quantity}</TableCell>
-                <TableCell className="text-right">৳{item.unit_price}</TableCell>
-                <TableCell className="text-right font-medium">৳{item.line_total}</TableCell>
+        <div className="space-y-2">
+          <div className="flex items-center justify-between">
+            <h4 className="font-medium">Items</h4>
+            <Button size="sm" variant="outline" onClick={() => setShowReturnForm(!showReturnForm)}>
+              <RotateCcw className="h-3 w-3 mr-1" /> Process Return
+            </Button>
+          </div>
+
+          {showReturnForm && (
+            <div className="p-4 border rounded-lg space-y-3 bg-orange-50 dark:bg-orange-950/20">
+              <div className="flex items-center gap-2 text-orange-600 dark:text-orange-400">
+                <AlertCircle className="h-4 w-4" />
+                <span className="text-sm font-medium">Process Sales Return</span>
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <div className="space-y-1">
+                  <Label className="text-xs">Select Item</Label>
+                  <Select value={returnItemId} onValueChange={(v) => {
+                    setReturnItemId(v);
+                    const item = sale.items?.find(i => i.id === v);
+                    if (item) setReturnQty(item.quantity);
+                  }}>
+                    <SelectTrigger><SelectValue placeholder="Select item to return" /></SelectTrigger>
+                    <SelectContent>
+                      {sale.items?.map(item => (
+                        <SelectItem key={item.id} value={item.id}>
+                          {item.product?.name} (Qty: {item.quantity})
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-1">
+                  <Label className="text-xs">Return Quantity</Label>
+                  <Input
+                    type="number"
+                    min={1}
+                    value={returnQty}
+                    onChange={(e) => setReturnQty(parseFloat(e.target.value) || 0)}
+                  />
+                </div>
+                <div className="space-y-1">
+                  <Label className="text-xs">Reason</Label>
+                  <Select value={returnReason} onValueChange={setReturnReason}>
+                    <SelectTrigger><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      {RETURN_REASONS.map(r => (
+                        <SelectItem key={r.value} value={r.value}>{r.label}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-1">
+                  <Label className="text-xs">Notes</Label>
+                  <Input
+                    placeholder="Optional"
+                    value={returnNotes}
+                    onChange={(e) => setReturnNotes(e.target.value)}
+                  />
+                </div>
+              </div>
+              <div className="flex items-center gap-2">
+                <input
+                  type="checkbox"
+                  id="restoreStock"
+                  checked={restoreToStock}
+                  onChange={(e) => setRestoreToStock(e.target.checked)}
+                  className="h-4 w-4"
+                />
+                <Label htmlFor="restoreStock" className="text-sm">
+                  Restore to sellable stock immediately (otherwise goes to Damaged Goods for review)
+                </Label>
+              </div>
+              <div className="flex justify-end gap-2">
+                <Button size="sm" variant="outline" onClick={() => setShowReturnForm(false)}>Cancel</Button>
+                <Button 
+                  size="sm" 
+                  onClick={handleProcessReturn} 
+                  disabled={!returnItemId || returnQty <= 0 || processReturn.isPending}
+                >
+                  Process Return
+                </Button>
+              </div>
+            </div>
+          )}
+
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>Product</TableHead>
+                <TableHead>Batch</TableHead>
+                <TableHead className="text-right">Qty</TableHead>
+                <TableHead className="text-right">Price</TableHead>
+                <TableHead className="text-right">Total</TableHead>
               </TableRow>
-            ))}
-          </TableBody>
-        </Table>
+            </TableHeader>
+            <TableBody>
+              {sale.items?.map((item) => (
+                <TableRow key={item.id}>
+                  <TableCell className="font-medium">{item.product?.name}</TableCell>
+                  <TableCell className="text-muted-foreground">
+                    {item.production_batch?.batch_number || '-'}
+                  </TableCell>
+                  <TableCell className="text-right">{item.quantity}</TableCell>
+                  <TableCell className="text-right">৳{item.unit_price}</TableCell>
+                  <TableCell className="text-right font-medium">৳{item.line_total}</TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        </div>
 
         {/* Totals */}
         <div className="border-t pt-4 space-y-2">
