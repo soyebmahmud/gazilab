@@ -149,6 +149,9 @@ function BOMDetailsDialog({ bomId }: { bomId: string }) {
   if (isLoading) {
     return (
       <DialogContent className="max-w-2xl">
+        <DialogHeader>
+          <DialogTitle>Loading BOM Details</DialogTitle>
+        </DialogHeader>
         <div className="p-8 text-center">Loading...</div>
       </DialogContent>
     );
@@ -157,6 +160,9 @@ function BOMDetailsDialog({ bomId }: { bomId: string }) {
   if (!bom) {
     return (
       <DialogContent className="max-w-2xl">
+        <DialogHeader>
+          <DialogTitle>BOM Details</DialogTitle>
+        </DialogHeader>
         <div className="p-8 text-center text-muted-foreground">BOM not found</div>
       </DialogContent>
     );
