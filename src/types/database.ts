@@ -161,6 +161,7 @@ export interface Sale {
   tax_percent: number;
   tax_amount: number;
   total_amount: number;
+  paid_amount: number;
   payment_status: 'pending' | 'partial' | 'paid';
   notes?: string;
   created_at: string;

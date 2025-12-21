@@ -598,6 +598,44 @@ export type Database = {
           },
         ]
       }
+      sale_payments: {
+        Row: {
+          amount: number
+          created_at: string
+          id: string
+          payment_date: string
+          payment_method: string
+          reference_note: string | null
+          sale_id: string
+        }
+        Insert: {
+          amount: number
+          created_at?: string
+          id?: string
+          payment_date?: string
+          payment_method?: string
+          reference_note?: string | null
+          sale_id: string
+        }
+        Update: {
+          amount?: number
+          created_at?: string
+          id?: string
+          payment_date?: string
+          payment_method?: string
+          reference_note?: string | null
+          sale_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "sale_payments_sale_id_fkey"
+            columns: ["sale_id"]
+            isOneToOne: false
+            referencedRelation: "sales"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       sales: {
         Row: {
           created_at: string
@@ -606,6 +644,7 @@ export type Database = {
           id: string
           invoice_number: string
           notes: string | null
+          paid_amount: number
           payment_status: string
           sale_date: string
           subtotal: number
@@ -621,6 +660,7 @@ export type Database = {
           id?: string
           invoice_number: string
           notes?: string | null
+          paid_amount?: number
           payment_status?: string
           sale_date?: string
           subtotal?: number
@@ -636,6 +676,7 @@ export type Database = {
           id?: string
           invoice_number?: string
           notes?: string | null
+          paid_amount?: number
           payment_status?: string
           sale_date?: string
           subtotal?: number
