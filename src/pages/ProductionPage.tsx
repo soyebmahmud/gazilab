@@ -76,7 +76,7 @@ function CreateProductionDialog({ onClose }: { onClose: () => void }) {
       {activeBom && (
         <div className="p-3 bg-accent rounded-lg text-sm">
           <p className="font-medium">BOM v{activeBom.version}</p>
-          <p className="text-muted-foreground">Est. Cost: ₹{Number(activeBom.estimated_cost).toFixed(2)} per unit</p>
+          <p className="text-muted-foreground">Est. Cost: ৳{Number(activeBom.estimated_cost).toFixed(2)} per unit</p>
         </div>
       )}
 

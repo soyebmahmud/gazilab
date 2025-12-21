@@ -7,9 +7,9 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
-import { useRawMaterials, useCreateRawMaterial, useUpdateRawMaterial, useDeleteRawMaterial, useMaterialUsage, useCanDeleteMaterial } from '@/hooks/useRawMaterials';
+import { useRawMaterials, useCreateRawMaterial, useUpdateRawMaterial, useDeleteRawMaterial, useMaterialUsage, useCanDeleteMaterial, useDeletedRawMaterials, useRestoreRawMaterial } from '@/hooks/useRawMaterials';
 import { RawMaterial, MaterialCategory, UnitType } from '@/types/database';
-import { Plus, Pencil, Trash2, Eye, AlertTriangle } from 'lucide-react';
+import { Plus, Pencil, Trash2, Eye, AlertTriangle, RotateCcw, Archive } from 'lucide-react';
 import { useState } from 'react';
 import { toast } from 'sonner';
 
@@ -151,11 +151,14 @@ function MaterialUsageDialog({ materialId, materialName }: { materialId: string;
 
 export default function RawMaterialsPage() {
   const { data: materials, isLoading } = useRawMaterials();
+  const { data: deletedMaterials } = useDeletedRawMaterials();
   const deleteMaterial = useDeleteRawMaterial();
+  const restoreMaterial = useRestoreRawMaterial();
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editMaterial, setEditMaterial] = useState<RawMaterial | undefined>();
   const [usageDialogOpen, setUsageDialogOpen] = useState(false);
   const [selectedMaterial, setSelectedMaterial] = useState<RawMaterial | null>(null);
+  const [showDeleted, setShowDeleted] = useState(false);
 
   const handleEdit = (material: RawMaterial) => {
     setEditMaterial(material);
@@ -173,6 +176,8 @@ export default function RawMaterialsPage() {
     setUsageDialogOpen(true);
   };
 
+  const displayMaterials = showDeleted ? deletedMaterials : materials;
+
   return (
     <MainLayout>
       <div className="space-y-6">
@@ -181,17 +186,23 @@ export default function RawMaterialsPage() {
             <h1 className="text-3xl font-bold">Raw Materials</h1>
             <p className="text-muted-foreground">Manage herbs, chemicals, and packaging</p>
           </div>
-          <Dialog open={dialogOpen} onOpenChange={(open) => { setDialogOpen(open); if (!open) setEditMaterial(undefined); }}>
-            <DialogTrigger asChild>
-              <Button><Plus className="h-4 w-4 mr-2" /> Add Material</Button>
-            </DialogTrigger>
-            <DialogContent className="max-w-2xl">
-              <DialogHeader>
-                <DialogTitle>{editMaterial ? 'Edit Material' : 'Add New Material'}</DialogTitle>
-              </DialogHeader>
-              <MaterialForm material={editMaterial} onClose={() => setDialogOpen(false)} />
-            </DialogContent>
-          </Dialog>
+          <div className="flex gap-2">
+            <Button variant={showDeleted ? "default" : "outline"} onClick={() => setShowDeleted(!showDeleted)}>
+              <Archive className="h-4 w-4 mr-2" />
+              {showDeleted ? 'Show Active' : `Deleted (${deletedMaterials?.length || 0})`}
+            </Button>
+            <Dialog open={dialogOpen} onOpenChange={(open) => { setDialogOpen(open); if (!open) setEditMaterial(undefined); }}>
+              <DialogTrigger asChild>
+                <Button><Plus className="h-4 w-4 mr-2" /> Add Material</Button>
+              </DialogTrigger>
+              <DialogContent className="max-w-2xl">
+                <DialogHeader>
+                  <DialogTitle>{editMaterial ? 'Edit Material' : 'Add New Material'}</DialogTitle>
+                </DialogHeader>
+                <MaterialForm material={editMaterial} onClose={() => setDialogOpen(false)} />
+              </DialogContent>
+            </Dialog>
+          </div>
         </div>
 
         <Card>
@@ -213,16 +224,18 @@ export default function RawMaterialsPage() {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {materials?.map((material) => (
+                  {displayMaterials?.map((material) => (
                     <TableRow key={material.id}>
                       <TableCell className="font-medium">{material.name}</TableCell>
                       <TableCell>{material.sku}</TableCell>
                       <TableCell><Badge variant="outline">{material.category}</Badge></TableCell>
                       <TableCell>{material.current_stock.toFixed(2)}</TableCell>
                       <TableCell>{material.unit}</TableCell>
-                      <TableCell>₹{material.cost_per_unit}</TableCell>
+                      <TableCell>৳{material.cost_per_unit}</TableCell>
                       <TableCell>
-                        {material.current_stock <= 0 ? (
+                        {showDeleted ? (
+                          <Badge variant="secondary">Deleted</Badge>
+                        ) : material.current_stock <= 0 ? (
                           <Badge variant="destructive">Out of Stock</Badge>
                         ) : material.current_stock <= material.min_stock_level ? (
                           <Badge className="bg-yellow-500">Low Stock</Badge>
@@ -232,15 +245,23 @@ export default function RawMaterialsPage() {
                       </TableCell>
                       <TableCell className="text-right">
                         <div className="flex justify-end gap-1">
-                          <Button size="icon" variant="ghost" onClick={() => handleViewUsage(material)}>
-                            <Eye className="h-4 w-4" />
-                          </Button>
-                          <Button size="icon" variant="ghost" onClick={() => handleEdit(material)}>
-                            <Pencil className="h-4 w-4" />
-                          </Button>
-                          <Button size="icon" variant="ghost" onClick={() => handleDelete(material)}>
-                            <Trash2 className="h-4 w-4" />
-                          </Button>
+                          {showDeleted ? (
+                            <Button size="icon" variant="ghost" onClick={() => restoreMaterial.mutate(material.id)} title="Restore">
+                              <RotateCcw className="h-4 w-4" />
+                            </Button>
+                          ) : (
+                            <>
+                              <Button size="icon" variant="ghost" onClick={() => handleViewUsage(material)}>
+                                <Eye className="h-4 w-4" />
+                              </Button>
+                              <Button size="icon" variant="ghost" onClick={() => handleEdit(material)}>
+                                <Pencil className="h-4 w-4" />
+                              </Button>
+                              <Button size="icon" variant="ghost" onClick={() => handleDelete(material)}>
+                                <Trash2 className="h-4 w-4" />
+                              </Button>
+                            </>
+                          )}
                         </div>
                       </TableCell>
                     </TableRow>

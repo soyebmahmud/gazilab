@@ -48,7 +48,7 @@ export default function Dashboard() {
     );
   }
 
-  const formatCurrency = (value: number) => `₹${value.toLocaleString('en-IN', { maximumFractionDigits: 2 })}`;
+  const formatCurrency = (value: number) => `৳${value.toLocaleString('en-BD', { maximumFractionDigits: 2 })}`;
 
   return (
     <MainLayout>

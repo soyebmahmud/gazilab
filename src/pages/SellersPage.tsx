@@ -122,7 +122,7 @@ export default function SellersPage() {
                       <TableCell>{seller.phone || '-'}</TableCell>
                       <TableCell>{seller.city || '-'}</TableCell>
                       <TableCell>{seller.gst_number || '-'}</TableCell>
-                      <TableCell>₹{seller.outstanding_balance}</TableCell>
+                      <TableCell>৳{seller.outstanding_balance}</TableCell>
                       <TableCell className="text-right">
                         <Button size="icon" variant="ghost" onClick={() => { setEditSeller(seller); setDialogOpen(true); }}>
                           <Pencil className="h-4 w-4" />

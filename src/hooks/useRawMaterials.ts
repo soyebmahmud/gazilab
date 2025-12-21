@@ -159,10 +159,50 @@ export function useDeleteRawMaterial() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['raw-materials'] });
+      queryClient.invalidateQueries({ queryKey: ['deleted-raw-materials'] });
       toast.success('Raw material deleted successfully');
     },
     onError: (error: Error) => {
       toast.error(error.message);
+    },
+  });
+}
+
+export function useDeletedRawMaterials() {
+  return useQuery({
+    queryKey: ['deleted-raw-materials'],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('raw_materials')
+        .select('*')
+        .eq('is_active', false)
+        .order('name');
+      
+      if (error) throw error;
+      return data as RawMaterial[];
+    },
+  });
+}
+
+export function useRestoreRawMaterial() {
+  const queryClient = useQueryClient();
+  
+  return useMutation({
+    mutationFn: async (id: string) => {
+      const { error } = await supabase
+        .from('raw_materials')
+        .update({ is_active: true })
+        .eq('id', id);
+      
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['raw-materials'] });
+      queryClient.invalidateQueries({ queryKey: ['deleted-raw-materials'] });
+      toast.success('Raw material restored successfully');
+    },
+    onError: (error: Error) => {
+      toast.error(`Failed to restore material: ${error.message}`);
     },
   });
 }
