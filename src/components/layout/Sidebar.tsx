@@ -13,6 +13,7 @@ import {
   Database,
   ShoppingCart
 } from 'lucide-react';
+import gaziLogo from '@/assets/gazi-logo.svg';
 
 const navItems = [
   { to: '/', icon: LayoutDashboard, label: 'Dashboard' },
@@ -30,12 +31,15 @@ const navItems = [
 
 export function Sidebar() {
   return (
-    <aside className="fixed left-0 top-0 z-40 h-screen w-64 border-r border-border bg-card">
-      <div className="flex h-16 items-center gap-2 border-b border-border px-6">
-        <Factory className="h-8 w-8 text-primary" />
-        <span className="text-xl font-bold text-foreground">ManufactureERP</span>
+    <aside className="fixed left-0 top-0 z-40 h-screen w-64 border-r border-border bg-card flex flex-col">
+      <div className="flex h-20 items-center gap-3 border-b border-border px-4">
+        <img src={gaziLogo} alt="Gazi Laboratories Logo" className="h-12 w-12" />
+        <div className="flex flex-col">
+          <span className="text-sm font-bold text-foreground leading-tight">GAZI LABORATORIES</span>
+          <span className="text-xs font-semibold text-foreground leading-tight">LIMITED</span>
+        </div>
       </div>
-      <nav className="space-y-1 p-4">
+      <nav className="space-y-1 p-4 flex-1 overflow-y-auto">
         {navItems.map((item) => (
           <NavLink
             key={item.to}
@@ -54,6 +58,11 @@ export function Sidebar() {
           </NavLink>
         ))}
       </nav>
+      <div className="border-t border-border p-3 text-center">
+        <p className="text-xs text-muted-foreground">
+          Developed by: <span className="font-medium">SOYEB MOHAMMAD ARIF</span>
+        </p>
+      </div>
     </aside>
   );
 }
