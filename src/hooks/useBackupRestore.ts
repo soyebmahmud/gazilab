@@ -14,6 +14,8 @@ interface BackupData {
   stock_ledger_products: any[];
   customers: any[];
   sellers: any[];
+  sales: any[];
+  sale_items: any[];
 }
 
 export function useBackupRestore() {
@@ -33,7 +35,9 @@ export function useBackupRestore() {
         stockLedgerMaterials,
         stockLedgerProducts,
         customers,
-        sellers
+        sellers,
+        sales,
+        saleItems
       ] = await Promise.all([
         supabase.from('raw_materials').select('*'),
         supabase.from('products').select('*'),
@@ -43,11 +47,13 @@ export function useBackupRestore() {
         supabase.from('stock_ledger_materials').select('*'),
         supabase.from('stock_ledger_products').select('*'),
         supabase.from('customers').select('*'),
-        supabase.from('sellers').select('*')
+        supabase.from('sellers').select('*'),
+        supabase.from('sales').select('*'),
+        supabase.from('sale_items').select('*')
       ]);
 
       const backup: BackupData = {
-        version: "1.0",
+        version: "1.1",
         exportedAt: new Date().toISOString(),
         raw_materials: rawMaterials.data || [],
         products: products.data || [],
@@ -57,7 +63,9 @@ export function useBackupRestore() {
         stock_ledger_materials: stockLedgerMaterials.data || [],
         stock_ledger_products: stockLedgerProducts.data || [],
         customers: customers.data || [],
-        sellers: sellers.data || []
+        sellers: sellers.data || [],
+        sales: sales.data || [],
+        sale_items: saleItems.data || []
       };
 
       return backup;
@@ -108,6 +116,7 @@ export function useBackupRestore() {
       Array.isArray(data.stock_ledger_products) &&
       Array.isArray(data.customers) &&
       Array.isArray(data.sellers)
+      // sales and sale_items are optional for backward compatibility
     );
   };
 
@@ -115,6 +124,8 @@ export function useBackupRestore() {
     setIsImporting(true);
     try {
       // Delete existing data in correct order (respecting foreign keys)
+      await supabase.from('sale_items').delete().neq('id', '00000000-0000-0000-0000-000000000000');
+      await supabase.from('sales').delete().neq('id', '00000000-0000-0000-0000-000000000000');
       await supabase.from('stock_ledger_products').delete().neq('id', '00000000-0000-0000-0000-000000000000');
       await supabase.from('stock_ledger_materials').delete().neq('id', '00000000-0000-0000-0000-000000000000');
       await supabase.from('production_batches').delete().neq('id', '00000000-0000-0000-0000-000000000000');
@@ -168,6 +179,17 @@ export function useBackupRestore() {
 
       if (data.sellers.length > 0) {
         const { error } = await supabase.from('sellers').insert(data.sellers);
+        if (error) throw error;
+      }
+
+      // Sales data (optional for backward compatibility)
+      if (data.sales && data.sales.length > 0) {
+        const { error } = await supabase.from('sales').insert(data.sales);
+        if (error) throw error;
+      }
+
+      if (data.sale_items && data.sale_items.length > 0) {
+        const { error } = await supabase.from('sale_items').insert(data.sale_items);
         if (error) throw error;
       }
 

@@ -10,7 +10,8 @@ import {
   Building2,
   FileText,
   Leaf,
-  Database
+  Database,
+  ShoppingCart
 } from 'lucide-react';
 
 const navItems = [
@@ -20,6 +21,7 @@ const navItems = [
   { to: '/bom', icon: ClipboardList, label: 'Bill of Materials' },
   { to: '/production', icon: Factory, label: 'Production' },
   { to: '/stock-ledger', icon: Boxes, label: 'Stock Ledger' },
+  { to: '/sales', icon: ShoppingCart, label: 'Sales' },
   { to: '/customers', icon: Users, label: 'Customers' },
   { to: '/sellers', icon: Building2, label: 'Sellers' },
   { to: '/reports', icon: FileText, label: 'Reports' },

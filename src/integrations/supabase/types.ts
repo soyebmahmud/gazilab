@@ -307,6 +307,120 @@ export type Database = {
         }
         Relationships: []
       }
+      sale_items: {
+        Row: {
+          created_at: string
+          discount_percent: number
+          id: string
+          line_total: number
+          product_id: string
+          production_batch_id: string | null
+          quantity: number
+          sale_id: string
+          unit_price: number
+        }
+        Insert: {
+          created_at?: string
+          discount_percent?: number
+          id?: string
+          line_total: number
+          product_id: string
+          production_batch_id?: string | null
+          quantity: number
+          sale_id: string
+          unit_price: number
+        }
+        Update: {
+          created_at?: string
+          discount_percent?: number
+          id?: string
+          line_total?: number
+          product_id?: string
+          production_batch_id?: string | null
+          quantity?: number
+          sale_id?: string
+          unit_price?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "sale_items_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "products"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "sale_items_production_batch_id_fkey"
+            columns: ["production_batch_id"]
+            isOneToOne: false
+            referencedRelation: "production_batches"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "sale_items_sale_id_fkey"
+            columns: ["sale_id"]
+            isOneToOne: false
+            referencedRelation: "sales"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      sales: {
+        Row: {
+          created_at: string
+          customer_id: string | null
+          discount_amount: number
+          id: string
+          invoice_number: string
+          notes: string | null
+          payment_status: string
+          sale_date: string
+          subtotal: number
+          tax_amount: number
+          tax_percent: number
+          total_amount: number
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          customer_id?: string | null
+          discount_amount?: number
+          id?: string
+          invoice_number: string
+          notes?: string | null
+          payment_status?: string
+          sale_date?: string
+          subtotal?: number
+          tax_amount?: number
+          tax_percent?: number
+          total_amount?: number
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          customer_id?: string | null
+          discount_amount?: number
+          id?: string
+          invoice_number?: string
+          notes?: string | null
+          payment_status?: string
+          sale_date?: string
+          subtotal?: number
+          tax_amount?: number
+          tax_percent?: number
+          total_amount?: number
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "sales_customer_id_fkey"
+            columns: ["customer_id"]
+            isOneToOne: false
+            referencedRelation: "customers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       sellers: {
         Row: {
           address: string | null
@@ -453,6 +567,7 @@ export type Database = {
           usage_count: number
         }[]
       }
+      generate_invoice_number: { Args: never; Returns: string }
       get_material_usage: {
         Args: { material_id: string }
         Returns: {
@@ -461,6 +576,16 @@ export type Database = {
           product_sku: string
           quantity_per_unit: number
           wastage_percent: number
+        }[]
+      }
+      get_product_batches: {
+        Args: { p_product_id: string }
+        Returns: {
+          batch_id: string
+          batch_number: string
+          expiry_date: string
+          manufacturing_date: string
+          quantity_available: number
         }[]
       }
     }

@@ -11,6 +11,7 @@ import ProductionPage from "./pages/ProductionPage";
 import StockLedgerPage from "./pages/StockLedgerPage";
 import CustomersPage from "./pages/CustomersPage";
 import SellersPage from "./pages/SellersPage";
+import SalesPage from "./pages/SalesPage";
 import ReportsPage from "./pages/ReportsPage";
 import BackupRestorePage from "./pages/BackupRestorePage";
 import NotFound from "./pages/NotFound";
@@ -32,6 +33,7 @@ const App = () => (
           <Route path="/stock-ledger" element={<StockLedgerPage />} />
           <Route path="/customers" element={<CustomersPage />} />
           <Route path="/sellers" element={<SellersPage />} />
+          <Route path="/sales" element={<SalesPage />} />
           <Route path="/reports" element={<ReportsPage />} />
           <Route path="/backup" element={<BackupRestorePage />} />
           <Route path="*" element={<NotFound />} />
