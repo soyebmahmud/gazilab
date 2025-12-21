@@ -3,6 +3,8 @@ import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
+import { ProtectedRoute } from "@/components/ProtectedRoute";
+import AuthPage from "./pages/AuthPage";
 import Dashboard from "./pages/Dashboard";
 import RawMaterialsPage from "./pages/RawMaterialsPage";
 import ProductsPage from "./pages/ProductsPage";
@@ -29,21 +31,22 @@ const App = () => (
       <Sonner />
       <BrowserRouter>
         <Routes>
-          <Route path="/" element={<Dashboard />} />
-          <Route path="/raw-materials" element={<RawMaterialsPage />} />
-          <Route path="/products" element={<ProductsPage />} />
-          <Route path="/bom" element={<BOMPage />} />
-          <Route path="/production" element={<ProductionPage />} />
-          <Route path="/stock-ledger" element={<StockLedgerPage />} />
-          <Route path="/purchase-orders" element={<PurchaseOrdersPage />} />
-          <Route path="/customers" element={<CustomersPage />} />
-          <Route path="/sellers" element={<SellersPage />} />
-          <Route path="/sales" element={<SalesPage />} />
-          <Route path="/sales-returns" element={<SalesReturnsPage />} />
-          <Route path="/damaged-goods" element={<DamagedGoodsPage />} />
-          <Route path="/expiry-alerts" element={<ExpiryAlertsPage />} />
-          <Route path="/reports" element={<ReportsPage />} />
-          <Route path="/backup" element={<BackupRestorePage />} />
+          <Route path="/auth" element={<AuthPage />} />
+          <Route path="/" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
+          <Route path="/raw-materials" element={<ProtectedRoute><RawMaterialsPage /></ProtectedRoute>} />
+          <Route path="/products" element={<ProtectedRoute><ProductsPage /></ProtectedRoute>} />
+          <Route path="/bom" element={<ProtectedRoute><BOMPage /></ProtectedRoute>} />
+          <Route path="/production" element={<ProtectedRoute><ProductionPage /></ProtectedRoute>} />
+          <Route path="/stock-ledger" element={<ProtectedRoute><StockLedgerPage /></ProtectedRoute>} />
+          <Route path="/purchase-orders" element={<ProtectedRoute><PurchaseOrdersPage /></ProtectedRoute>} />
+          <Route path="/customers" element={<ProtectedRoute><CustomersPage /></ProtectedRoute>} />
+          <Route path="/sellers" element={<ProtectedRoute><SellersPage /></ProtectedRoute>} />
+          <Route path="/sales" element={<ProtectedRoute><SalesPage /></ProtectedRoute>} />
+          <Route path="/sales-returns" element={<ProtectedRoute><SalesReturnsPage /></ProtectedRoute>} />
+          <Route path="/damaged-goods" element={<ProtectedRoute><DamagedGoodsPage /></ProtectedRoute>} />
+          <Route path="/expiry-alerts" element={<ProtectedRoute><ExpiryAlertsPage /></ProtectedRoute>} />
+          <Route path="/reports" element={<ProtectedRoute><ReportsPage /></ProtectedRoute>} />
+          <Route path="/backup" element={<ProtectedRoute><BackupRestorePage /></ProtectedRoute>} />
           <Route path="*" element={<NotFound />} />
         </Routes>
       </BrowserRouter>
