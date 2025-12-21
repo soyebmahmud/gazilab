@@ -154,10 +154,50 @@ export function useDeleteProduct() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['products'] });
+      queryClient.invalidateQueries({ queryKey: ['deleted-products'] });
       toast.success('Product deleted successfully');
     },
     onError: (error: Error) => {
       toast.error(`Failed to delete product: ${error.message}`);
+    },
+  });
+}
+
+export function useDeletedProducts() {
+  return useQuery({
+    queryKey: ['deleted-products'],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('products')
+        .select('*')
+        .eq('is_active', false)
+        .order('name');
+      
+      if (error) throw error;
+      return data as Product[];
+    },
+  });
+}
+
+export function useRestoreProduct() {
+  const queryClient = useQueryClient();
+  
+  return useMutation({
+    mutationFn: async (id: string) => {
+      const { error } = await supabase
+        .from('products')
+        .update({ is_active: true })
+        .eq('id', id);
+      
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['products'] });
+      queryClient.invalidateQueries({ queryKey: ['deleted-products'] });
+      toast.success('Product restored successfully');
+    },
+    onError: (error: Error) => {
+      toast.error(`Failed to restore product: ${error.message}`);
     },
   });
 }

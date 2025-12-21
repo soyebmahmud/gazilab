@@ -122,7 +122,7 @@ export default function CustomersPage() {
                       <TableCell>{customer.phone || '-'}</TableCell>
                       <TableCell>{customer.city || '-'}</TableCell>
                       <TableCell>{customer.gst_number || '-'}</TableCell>
-                      <TableCell>₹{customer.outstanding_balance}</TableCell>
+                      <TableCell>৳{customer.outstanding_balance}</TableCell>
                       <TableCell className="text-right">
                         <Button size="icon" variant="ghost" onClick={() => { setEditCustomer(customer); setDialogOpen(true); }}>
                           <Pencil className="h-4 w-4" />

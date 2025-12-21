@@ -209,7 +209,7 @@ function CreateSaleDialog({ onClose }: { onClose: () => void }) {
               </div>
               <div className="col-span-1 text-right">
                 <Label className="text-xs">Total</Label>
-                <p className="font-medium py-2">₹{lineTotal.toFixed(2)}</p>
+                <p className="font-medium py-2">৳{lineTotal.toFixed(2)}</p>
               </div>
               <div className="col-span-1">
                 <Button type="button" size="icon" variant="ghost" onClick={() => removeItem(index)}>
@@ -224,7 +224,7 @@ function CreateSaleDialog({ onClose }: { onClose: () => void }) {
       {/* Totals */}
       <div className="grid grid-cols-3 gap-4">
         <div className="space-y-2">
-          <Label>Discount (₹)</Label>
+          <Label>Discount (৳)</Label>
           <Input 
             type="number" 
             step="0.01"
@@ -255,23 +255,23 @@ function CreateSaleDialog({ onClose }: { onClose: () => void }) {
       <div className="bg-accent rounded-lg p-4 space-y-2">
         <div className="flex justify-between text-sm">
           <span>Subtotal</span>
-          <span>₹{subtotal.toFixed(2)}</span>
+          <span>৳{subtotal.toFixed(2)}</span>
         </div>
         {discountAmount > 0 && (
           <div className="flex justify-between text-sm text-destructive">
             <span>Discount</span>
-            <span>-₹{discountAmount.toFixed(2)}</span>
+            <span>-৳{discountAmount.toFixed(2)}</span>
           </div>
         )}
         {taxPercent > 0 && (
           <div className="flex justify-between text-sm">
             <span>Tax ({taxPercent}%)</span>
-            <span>₹{taxAmount.toFixed(2)}</span>
+            <span>৳{taxAmount.toFixed(2)}</span>
           </div>
         )}
         <div className="flex justify-between font-bold text-lg border-t pt-2">
           <span>Total</span>
-          <span>₹{total.toFixed(2)}</span>
+          <span>৳{total.toFixed(2)}</span>
         </div>
       </div>
 
@@ -347,8 +347,8 @@ function SaleDetailsDialog({ saleId, onClose }: { saleId: string; onClose: () =>
                   {item.production_batch?.batch_number || '-'}
                 </TableCell>
                 <TableCell className="text-right">{item.quantity}</TableCell>
-                <TableCell className="text-right">₹{item.unit_price}</TableCell>
-                <TableCell className="text-right font-medium">₹{item.line_total}</TableCell>
+                <TableCell className="text-right">৳{item.unit_price}</TableCell>
+                <TableCell className="text-right font-medium">৳{item.line_total}</TableCell>
               </TableRow>
             ))}
           </TableBody>
@@ -358,23 +358,23 @@ function SaleDetailsDialog({ saleId, onClose }: { saleId: string; onClose: () =>
         <div className="border-t pt-4 space-y-2">
           <div className="flex justify-between text-sm">
             <span>Subtotal</span>
-            <span>₹{sale.subtotal}</span>
+            <span>৳{sale.subtotal}</span>
           </div>
           {sale.discount_amount > 0 && (
             <div className="flex justify-between text-sm text-destructive">
               <span>Discount</span>
-              <span>-₹{sale.discount_amount}</span>
+              <span>-৳{sale.discount_amount}</span>
             </div>
           )}
           {sale.tax_amount > 0 && (
             <div className="flex justify-between text-sm">
               <span>Tax ({sale.tax_percent}%)</span>
-              <span>₹{sale.tax_amount}</span>
+              <span>৳{sale.tax_amount}</span>
             </div>
           )}
           <div className="flex justify-between font-bold text-lg border-t pt-2">
             <span>Total</span>
-            <span>₹{sale.total_amount}</span>
+            <span>৳{sale.total_amount}</span>
           </div>
         </div>
 
@@ -450,7 +450,7 @@ export default function SalesPage() {
                       <TableCell className="font-medium">{sale.customer?.name || 'Walk-in'}</TableCell>
                       <TableCell>{format(new Date(sale.sale_date), 'dd MMM yyyy')}</TableCell>
                       <TableCell className="text-right">{sale.items?.length || 0}</TableCell>
-                      <TableCell className="text-right font-medium">₹{sale.total_amount}</TableCell>
+                      <TableCell className="text-right font-medium">৳{sale.total_amount}</TableCell>
                       <TableCell>
                         <Badge className={paymentStatusColors[sale.payment_status]}>
                           {sale.payment_status}

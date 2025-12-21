@@ -188,7 +188,7 @@ function BOMDetailsDialog({ bomId }: { bomId: string }) {
         <div className="flex gap-4 text-sm">
           <div className="p-3 bg-accent rounded-lg flex-1">
             <p className="text-muted-foreground">Est. Manufacturing Cost</p>
-            <p className="text-xl font-bold">₹{Number(bom.estimated_cost).toFixed(2)}</p>
+            <p className="text-xl font-bold">৳{Number(bom.estimated_cost).toFixed(2)}</p>
           </div>
           <div className="p-3 bg-accent rounded-lg flex-1">
             <p className="text-muted-foreground">Status</p>
@@ -226,8 +226,8 @@ function BOMDetailsDialog({ bomId }: { bomId: string }) {
                     <TableCell className="text-muted-foreground">{item.raw_material?.sku}</TableCell>
                     <TableCell className="text-right">{item.quantity_per_unit} {item.raw_material?.unit}</TableCell>
                     <TableCell className="text-right">{item.wastage_percent}%</TableCell>
-                    <TableCell className="text-right">₹{item.raw_material?.cost_per_unit}</TableCell>
-                    <TableCell className="text-right font-medium">₹{itemCost.toFixed(2)}</TableCell>
+                    <TableCell className="text-right">৳{item.raw_material?.cost_per_unit}</TableCell>
+                    <TableCell className="text-right font-medium">৳{itemCost.toFixed(2)}</TableCell>
                   </TableRow>
                 );
               })}
@@ -303,7 +303,7 @@ export default function BOMPage() {
                       <TableCell className="font-medium">{bom.product?.name}</TableCell>
                       <TableCell className="text-muted-foreground">{bom.product?.sku}</TableCell>
                       <TableCell>v{bom.version}</TableCell>
-                      <TableCell>₹{Number(bom.estimated_cost).toFixed(2)}</TableCell>
+                      <TableCell>৳{Number(bom.estimated_cost).toFixed(2)}</TableCell>
                       <TableCell>
                         <Badge className={bom.is_active ? 'bg-primary' : ''}>{bom.is_active ? 'Active' : 'Inactive'}</Badge>
                       </TableCell>

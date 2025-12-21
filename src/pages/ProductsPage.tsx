@@ -210,7 +210,7 @@ function ProductBOMDialog({ productId, productName }: { productId: string; produ
             </div>
             <div className="p-3 bg-accent rounded-lg flex-1">
               <p className="text-sm text-muted-foreground">Est. Cost</p>
-              <p className="text-xl font-bold">₹{Number(bom.estimated_cost).toFixed(2)}</p>
+              <p className="text-xl font-bold">৳{Number(bom.estimated_cost).toFixed(2)}</p>
             </div>
           </div>
 
@@ -243,7 +243,7 @@ function ProductBOMDialog({ productId, productName }: { productId: string; produ
                       </TableCell>
                       <TableCell className="text-right">{item.quantity_per_unit} {item.raw_material?.unit}</TableCell>
                       <TableCell className="text-right">{item.wastage_percent}%</TableCell>
-                      <TableCell className="text-right font-medium">₹{itemCost.toFixed(2)}</TableCell>
+                      <TableCell className="text-right font-medium">৳{itemCost.toFixed(2)}</TableCell>
                     </TableRow>
                   );
                 })}
@@ -322,7 +322,7 @@ export default function ProductsPage() {
                           <span className="text-muted-foreground">1</span>
                         )}
                       </TableCell>
-                      <TableCell className="text-right">₹{product.selling_price}</TableCell>
+                      <TableCell className="text-right">৳{product.selling_price}</TableCell>
                       <TableCell>
                         {product.current_stock <= 0 ? (
                           <Badge variant="destructive">Out of Stock</Badge>
