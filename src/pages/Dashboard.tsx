@@ -1,7 +1,7 @@
 import { MainLayout } from '@/components/layout/MainLayout';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { useDashboardStats, useInventoryInsights, useManufacturingInsights, useAlerts, useSalesTrends, useProductionTrends } from '@/hooks/useDashboard';
-import { Package, Leaf, DollarSign, Factory, AlertTriangle, TrendingUp, Boxes, Ban, ShoppingCart, Activity } from 'lucide-react';
+import { useDashboardStats, useInventoryInsights, useManufacturingInsights, useAlerts, useSalesTrends, useProductionTrends, useWeeklySales, useInventoryTrends } from '@/hooks/useDashboard';
+import { Package, Leaf, DollarSign, Factory, AlertTriangle, TrendingUp, Boxes, Ban, ShoppingCart, Activity, Calendar, Warehouse } from 'lucide-react';
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip, BarChart, Bar, XAxis, YAxis, CartesianGrid, LineChart, Line, Legend } from 'recharts';
 import { Badge } from '@/components/ui/badge';
 
@@ -39,6 +39,8 @@ export default function Dashboard() {
   const { data: alerts } = useAlerts();
   const { data: salesTrends } = useSalesTrends();
   const { data: productionTrends } = useProductionTrends();
+  const { data: weeklySales } = useWeeklySales();
+  const { data: inventoryTrends } = useInventoryTrends();
 
   if (statsLoading) {
     return (
@@ -264,6 +266,127 @@ export default function Dashboard() {
                 </div>
               ) : (
                 <p className="text-center text-muted-foreground py-8">No production data yet</p>
+              )}
+            </CardContent>
+          </Card>
+        </div>
+
+        {/* Weekly Sales & Inventory Trends */}
+        <div className="grid gap-6 lg:grid-cols-2">
+          {/* Weekly Sales Breakdown */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Calendar className="h-5 w-5" />
+                This Week's Sales
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              {weeklySales && weeklySales.length > 0 ? (
+                <div className="h-64">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <BarChart data={weeklySales}>
+                      <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
+                      <XAxis 
+                        dataKey="day" 
+                        className="text-xs" 
+                        tick={{ fill: 'hsl(var(--muted-foreground))' }}
+                      />
+                      <YAxis 
+                        className="text-xs" 
+                        tick={{ fill: 'hsl(var(--muted-foreground))' }} 
+                        tickFormatter={(value) => `৳${(value / 1000).toFixed(0)}k`} 
+                      />
+                      <Tooltip 
+                        formatter={(value: number) => [`৳${value.toLocaleString()}`, 'Sales']}
+                        labelFormatter={(label, payload) => payload?.[0]?.payload?.date || label}
+                        contentStyle={{ backgroundColor: 'hsl(var(--background))', border: '1px solid hsl(var(--border))' }}
+                      />
+                      <Bar 
+                        dataKey="total" 
+                        fill="hsl(var(--chart-4))" 
+                        radius={[4, 4, 0, 0]}
+                        animationBegin={0}
+                        animationDuration={800}
+                        animationEasing="ease-out"
+                      />
+                    </BarChart>
+                  </ResponsiveContainer>
+                </div>
+              ) : (
+                <p className="text-center text-muted-foreground py-8">No sales this week</p>
+              )}
+            </CardContent>
+          </Card>
+
+          {/* Inventory Value Trends */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Warehouse className="h-5 w-5" />
+                Inventory Value Trends (Last 14 Days)
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              {inventoryTrends && inventoryTrends.length > 0 ? (
+                <div className="h-64">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <LineChart data={inventoryTrends}>
+                      <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
+                      <XAxis 
+                        dataKey="date" 
+                        className="text-xs" 
+                        tick={{ fill: 'hsl(var(--muted-foreground))' }}
+                      />
+                      <YAxis 
+                        className="text-xs" 
+                        tick={{ fill: 'hsl(var(--muted-foreground))' }} 
+                        tickFormatter={(value) => `৳${(value / 1000).toFixed(0)}k`}
+                      />
+                      <Tooltip 
+                        formatter={(value: number) => [`৳${value.toLocaleString()}`, '']}
+                        contentStyle={{ backgroundColor: 'hsl(var(--background))', border: '1px solid hsl(var(--border))' }}
+                      />
+                      <Legend />
+                      <Line 
+                        type="monotone" 
+                        dataKey="products" 
+                        stroke="hsl(var(--chart-1))" 
+                        strokeWidth={2}
+                        dot={{ fill: 'hsl(var(--chart-1))' }}
+                        name="Finished Goods"
+                        animationBegin={0}
+                        animationDuration={800}
+                        animationEasing="ease-out"
+                      />
+                      <Line 
+                        type="monotone" 
+                        dataKey="materials" 
+                        stroke="hsl(var(--chart-2))" 
+                        strokeWidth={2}
+                        dot={{ fill: 'hsl(var(--chart-2))' }}
+                        name="Raw Materials"
+                        animationBegin={200}
+                        animationDuration={800}
+                        animationEasing="ease-out"
+                      />
+                      <Line 
+                        type="monotone" 
+                        dataKey="total" 
+                        stroke="hsl(var(--chart-5))" 
+                        strokeWidth={2}
+                        strokeDasharray="5 5"
+                        dot={{ fill: 'hsl(var(--chart-5))' }}
+                        name="Total Value"
+                        animationBegin={400}
+                        animationDuration={800}
+                        animationEasing="ease-out"
+                      />
+                    </LineChart>
+                  </ResponsiveContainer>
+                </div>
+              ) : (
+                <p className="text-center text-muted-foreground py-8">No inventory data yet</p>
               )}
             </CardContent>
           </Card>
