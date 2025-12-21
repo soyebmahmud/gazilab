@@ -129,6 +129,7 @@ export default function Dashboard() {
                         dataKey="count"
                         nameKey="category"
                         label={({ category, count }) => `${category}: ${count}`}
+                        isAnimationActive={false}
                       >
                         {stats.productsByCategory.map((_, index) => (
                           <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
