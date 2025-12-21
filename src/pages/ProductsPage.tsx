@@ -35,6 +35,7 @@ function ProductForm({ product, onClose }: { product?: Product; onClose: () => v
     unit: product?.unit || 'pcs' as UnitType,
     selling_price: product?.selling_price || 0,
     min_stock_level: product?.min_stock_level || 0,
+    units_per_pack: product?.units_per_pack || 1,
     opening_stock: 0,
     description: product?.description || '',
     is_active: product?.is_active ?? true
@@ -101,9 +102,20 @@ function ProductForm({ product, onClose }: { product?: Product; onClose: () => v
           <Label>Min Stock Level</Label>
           <Input type="number" step="0.001" value={formData.min_stock_level} onChange={(e) => setFormData({ ...formData, min_stock_level: parseFloat(e.target.value) || 0 })} />
         </div>
+        <div className="space-y-2">
+          <Label>Units per Pack/Strip</Label>
+          <Input 
+            type="number" 
+            step="1" 
+            min="1"
+            value={formData.units_per_pack} 
+            onChange={(e) => setFormData({ ...formData, units_per_pack: parseInt(e.target.value) || 1 })} 
+          />
+          <p className="text-xs text-muted-foreground">E.g., 10 for tablets where 1 strip = 10 tablets</p>
+        </div>
         {!product && (
           <div className="space-y-2">
-            <Label>Opening Stock</Label>
+            <Label>Opening Stock (in units)</Label>
             <Input type="number" step="0.001" value={formData.opening_stock} onChange={(e) => setFormData({ ...formData, opening_stock: parseFloat(e.target.value) || 0 })} />
           </div>
         )}
@@ -289,6 +301,7 @@ export default function ProductsPage() {
                     <TableHead>Category</TableHead>
                     <TableHead className="text-right">Stock</TableHead>
                     <TableHead>Unit</TableHead>
+                    <TableHead className="text-right">Units/Pack</TableHead>
                     <TableHead className="text-right">Price</TableHead>
                     <TableHead>Status</TableHead>
                     <TableHead className="text-right">Actions</TableHead>
@@ -302,6 +315,13 @@ export default function ProductsPage() {
                       <TableCell><Badge variant="outline">{product.category}</Badge></TableCell>
                       <TableCell className="text-right">{product.current_stock}</TableCell>
                       <TableCell>{product.unit}</TableCell>
+                      <TableCell className="text-right">
+                        {(product.units_per_pack || 1) > 1 ? (
+                          <Badge variant="secondary">{product.units_per_pack}/pack</Badge>
+                        ) : (
+                          <span className="text-muted-foreground">1</span>
+                        )}
+                      </TableCell>
                       <TableCell className="text-right">₹{product.selling_price}</TableCell>
                       <TableCell>
                         {product.current_stock <= 0 ? (
