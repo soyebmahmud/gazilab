@@ -150,6 +150,47 @@ export interface CanDeleteMaterial {
   ledger_count: number;
 }
 
+// Sales types
+export interface Sale {
+  id: string;
+  invoice_number: string;
+  customer_id?: string;
+  sale_date: string;
+  subtotal: number;
+  discount_amount: number;
+  tax_percent: number;
+  tax_amount: number;
+  total_amount: number;
+  payment_status: 'pending' | 'partial' | 'paid';
+  notes?: string;
+  created_at: string;
+  updated_at: string;
+  customer?: Customer;
+  items?: SaleItem[];
+}
+
+export interface SaleItem {
+  id: string;
+  sale_id: string;
+  product_id: string;
+  production_batch_id?: string;
+  quantity: number;
+  unit_price: number;
+  discount_percent: number;
+  line_total: number;
+  created_at: string;
+  product?: Product;
+  production_batch?: ProductionBatch;
+}
+
+export interface ProductBatch {
+  batch_id: string;
+  batch_number: string;
+  quantity_available: number;
+  manufacturing_date?: string;
+  expiry_date?: string;
+}
+
 // Dashboard statistics
 export interface DashboardStats {
   totalProducts: number;
