@@ -1,4 +1,4 @@
-import { NavLink } from 'react-router-dom';
+import { NavLink, useNavigate } from 'react-router-dom';
 import { cn } from '@/lib/utils';
 import {
   LayoutDashboard,
@@ -15,9 +15,13 @@ import {
   Truck,
   AlertTriangle,
   PackageX,
-  RotateCcw
+  RotateCcw,
+  LogOut
 } from 'lucide-react';
 import gaziLogo from '@/assets/gazi-logo.svg';
+import { useAuth } from '@/hooks/useAuth';
+import { Button } from '@/components/ui/button';
+import { useToast } from '@/hooks/use-toast';
 
 const navItems = [
   { to: '/', icon: LayoutDashboard, label: 'Dashboard' },
@@ -38,6 +42,23 @@ const navItems = [
 ];
 
 export function Sidebar() {
+  const { signOut, user } = useAuth();
+  const navigate = useNavigate();
+  const { toast } = useToast();
+
+  const handleLogout = async () => {
+    const { error } = await signOut();
+    if (error) {
+      toast({
+        title: "Logout Failed",
+        description: error.message,
+        variant: "destructive",
+      });
+    } else {
+      navigate('/auth');
+    }
+  };
+
   return (
     <aside className="fixed left-0 top-0 z-40 h-screen w-64 border-r border-border bg-card flex flex-col">
       <div className="flex h-20 items-center gap-3 border-b border-border px-4">
@@ -66,8 +87,22 @@ export function Sidebar() {
           </NavLink>
         ))}
       </nav>
-      <div className="border-t border-border p-3 text-center">
-        <p className="text-xs text-muted-foreground">
+      <div className="border-t border-border p-3 space-y-2">
+        {user && (
+          <p className="text-xs text-muted-foreground truncate px-1">
+            {user.email}
+          </p>
+        )}
+        <Button
+          variant="outline"
+          size="sm"
+          className="w-full"
+          onClick={handleLogout}
+        >
+          <LogOut className="h-4 w-4 mr-2" />
+          Sign Out
+        </Button>
+        <p className="text-xs text-muted-foreground text-center pt-1">
           Developed by: <span className="font-medium">SOYEB MOHAMMAD ARIF</span>
         </p>
       </div>
