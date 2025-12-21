@@ -12,6 +12,8 @@ import StockLedgerPage from "./pages/StockLedgerPage";
 import CustomersPage from "./pages/CustomersPage";
 import SellersPage from "./pages/SellersPage";
 import SalesPage from "./pages/SalesPage";
+import SalesReturnsPage from "./pages/SalesReturnsPage";
+import DamagedGoodsPage from "./pages/DamagedGoodsPage";
 import ReportsPage from "./pages/ReportsPage";
 import BackupRestorePage from "./pages/BackupRestorePage";
 import PurchaseOrdersPage from "./pages/PurchaseOrdersPage";
@@ -37,6 +39,8 @@ const App = () => (
           <Route path="/customers" element={<CustomersPage />} />
           <Route path="/sellers" element={<SellersPage />} />
           <Route path="/sales" element={<SalesPage />} />
+          <Route path="/sales-returns" element={<SalesReturnsPage />} />
+          <Route path="/damaged-goods" element={<DamagedGoodsPage />} />
           <Route path="/expiry-alerts" element={<ExpiryAlertsPage />} />
           <Route path="/reports" element={<ReportsPage />} />
           <Route path="/backup" element={<BackupRestorePage />} />
