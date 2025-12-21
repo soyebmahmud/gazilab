@@ -1,7 +1,7 @@
 import { MainLayout } from '@/components/layout/MainLayout';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { useDashboardStats, useInventoryInsights, useManufacturingInsights, useAlerts } from '@/hooks/useDashboard';
-import { Package, Leaf, DollarSign, Factory, AlertTriangle, TrendingUp, Boxes } from 'lucide-react';
+import { Package, Leaf, DollarSign, Factory, AlertTriangle, TrendingUp, Boxes, Ban } from 'lucide-react';
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip } from 'recharts';
 import { Badge } from '@/components/ui/badge';
 
@@ -73,6 +73,39 @@ export default function Dashboard() {
           <StatCard title="Manufacturing Value" value={formatCurrency(stats?.manufacturingValue || 0)} icon={Factory} />
         </div>
 
+        {/* Blocked Products Alert - PROMINENT */}
+        {alerts?.blockedProducts && alerts.blockedProducts.length > 0 && (
+          <Card className="border-destructive/50 bg-destructive/5">
+            <CardHeader className="pb-3">
+              <CardTitle className="flex items-center gap-2 text-destructive">
+                <Ban className="h-5 w-5" />
+                Blocked for Production ({alerts.blockedProducts.length})
+              </CardTitle>
+              <p className="text-sm text-muted-foreground">
+                These products cannot be manufactured due to insufficient raw materials
+              </p>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-3">
+                {alerts.blockedProducts.map((item: any, index: number) => (
+                  <div key={index} className="flex items-center justify-between p-3 bg-background border rounded-lg">
+                    <div>
+                      <p className="font-medium">{item.product?.name}</p>
+                      <p className="text-sm text-muted-foreground">
+                        Blocked by: <span className="text-destructive font-medium">{item.material?.name}</span>
+                      </p>
+                    </div>
+                    <div className="text-right text-sm">
+                      <p>Required: <span className="font-medium">{item.required.toFixed(3)} {item.material?.unit}</span></p>
+                      <p>Available: <span className="text-destructive font-medium">{item.available.toFixed(3)} {item.material?.unit}</span></p>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </CardContent>
+          </Card>
+        )}
+
         <div className="grid gap-6 lg:grid-cols-2">
           {/* Products by Category */}
           <Card>
@@ -133,7 +166,7 @@ export default function Dashboard() {
                 <span className="font-semibold">{(manufacturing?.productionEfficiency || 0).toFixed(1)}%</span>
               </div>
               <div className="flex justify-between items-center p-3 bg-accent rounded-lg">
-                <span className="text-sm">Total Batches</span>
+                <span className="text-sm">Completed Batches</span>
                 <span className="font-semibold">{manufacturing?.completedBatches || 0} / {manufacturing?.totalBatches || 0}</span>
               </div>
             </CardContent>
@@ -202,6 +235,27 @@ export default function Dashboard() {
             </CardContent>
           </Card>
         </div>
+
+        {/* Out of Stock Materials */}
+        {alerts?.outOfStock && alerts.outOfStock.length > 0 && (
+          <Card className="border-destructive/50">
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2 text-destructive">
+                <AlertTriangle className="h-5 w-5" />
+                Out of Stock Materials ({alerts.outOfStock.length})
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="flex flex-wrap gap-2">
+                {alerts.outOfStock.map((material: any) => (
+                  <Badge key={material.id} variant="destructive">
+                    {material.name}
+                  </Badge>
+                ))}
+              </div>
+            </CardContent>
+          </Card>
+        )}
       </div>
     </MainLayout>
   );
