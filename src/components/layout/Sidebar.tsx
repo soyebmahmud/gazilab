@@ -13,7 +13,9 @@ import {
   Database,
   ShoppingCart,
   Truck,
-  AlertTriangle
+  AlertTriangle,
+  PackageX,
+  RotateCcw
 } from 'lucide-react';
 import gaziLogo from '@/assets/gazi-logo.svg';
 
@@ -26,6 +28,8 @@ const navItems = [
   { to: '/stock-ledger', icon: Boxes, label: 'Stock Ledger' },
   { to: '/purchase-orders', icon: Truck, label: 'Purchase Orders' },
   { to: '/sales', icon: ShoppingCart, label: 'Sales' },
+  { to: '/sales-returns', icon: RotateCcw, label: 'Sales Returns' },
+  { to: '/damaged-goods', icon: PackageX, label: 'Damaged Goods' },
   { to: '/expiry-alerts', icon: AlertTriangle, label: 'Expiry Alerts' },
   { to: '/customers', icon: Users, label: 'Customers' },
   { to: '/sellers', icon: Building2, label: 'Sellers' },
