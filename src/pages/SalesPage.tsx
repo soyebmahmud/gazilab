@@ -10,9 +10,11 @@ import { Badge } from '@/components/ui/badge';
 import { useSales, useCreateSale, useProductBatches, useUpdatePaymentStatus } from '@/hooks/useSales';
 import { useProducts } from '@/hooks/useProducts';
 import { useCustomers } from '@/hooks/useCustomers';
-import { Plus, X, FileText, Eye, CreditCard, Package } from 'lucide-react';
-import { useState } from 'react';
+import { Plus, X, FileText, Eye, CreditCard, Package, Printer } from 'lucide-react';
+import { useState, useRef } from 'react';
 import { format } from 'date-fns';
+import { InvoicePrint } from '@/components/InvoicePrint';
+import { useReactToPrint } from 'react-to-print';
 
 interface SaleItemForm {
   product_id: string;
@@ -290,6 +292,12 @@ function SaleDetailsDialog({ saleId, onClose }: { saleId: string; onClose: () =>
   const { data: sales } = useSales();
   const sale = sales?.find(s => s.id === saleId);
   const updatePayment = useUpdatePaymentStatus();
+  const printRef = useRef<HTMLDivElement>(null);
+
+  const handlePrint = useReactToPrint({
+    contentRef: printRef,
+    documentTitle: sale ? `Invoice-${sale.invoice_number}` : 'Invoice',
+  });
 
   if (!sale) return null;
 
@@ -298,7 +306,7 @@ function SaleDetailsDialog({ saleId, onClose }: { saleId: string; onClose: () =>
   };
 
   return (
-    <DialogContent className="max-w-2xl">
+    <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
       <DialogHeader>
         <DialogTitle className="flex items-center gap-2">
           <FileText className="h-5 w-5" />
@@ -378,14 +386,23 @@ function SaleDetailsDialog({ saleId, onClose }: { saleId: string; onClose: () =>
           </div>
         </div>
 
-        {sale.payment_status !== 'paid' && (
-          <div className="flex justify-end pt-4 border-t">
+        <div className="flex justify-between pt-4 border-t">
+          <Button variant="outline" onClick={() => handlePrint()}>
+            <Printer className="h-4 w-4 mr-2" />
+            Print Invoice
+          </Button>
+          {sale.payment_status !== 'paid' && (
             <Button onClick={handleMarkPaid} disabled={updatePayment.isPending}>
               <CreditCard className="h-4 w-4 mr-2" />
               Mark as Paid
             </Button>
-          </div>
-        )}
+          )}
+        </div>
+      </div>
+
+      {/* Hidden print component */}
+      <div className="hidden">
+        <InvoicePrint ref={printRef} sale={sale} />
       </div>
     </DialogContent>
   );
