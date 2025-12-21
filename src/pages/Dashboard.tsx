@@ -1,7 +1,7 @@
 import { MainLayout } from '@/components/layout/MainLayout';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { useDashboardStats, useInventoryInsights, useManufacturingInsights, useAlerts, useSalesTrends, useProductionTrends, useWeeklySales, useInventoryTrends } from '@/hooks/useDashboard';
-import { Package, Leaf, DollarSign, Factory, AlertTriangle, TrendingUp, Boxes, Ban, ShoppingCart, Activity, Calendar, Warehouse } from 'lucide-react';
+import { useDashboardStats, useInventoryInsights, useManufacturingInsights, useAlerts, useSalesTrends, useProductionTrends, useWeeklySales, useInventoryTrends, useTopSellingProducts, useProfitMargins } from '@/hooks/useDashboard';
+import { Package, Leaf, DollarSign, Factory, AlertTriangle, TrendingUp, Boxes, Ban, ShoppingCart, Activity, Calendar, Warehouse, Trophy, Percent } from 'lucide-react';
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip, BarChart, Bar, XAxis, YAxis, CartesianGrid, LineChart, Line, Legend } from 'recharts';
 import { Badge } from '@/components/ui/badge';
 
@@ -41,6 +41,8 @@ export default function Dashboard() {
   const { data: productionTrends } = useProductionTrends();
   const { data: weeklySales } = useWeeklySales();
   const { data: inventoryTrends } = useInventoryTrends();
+  const { data: topProducts } = useTopSellingProducts();
+  const { data: profitMargins } = useProfitMargins();
 
   if (statsLoading) {
     return (
@@ -387,6 +389,126 @@ export default function Dashboard() {
                 </div>
               ) : (
                 <p className="text-center text-muted-foreground py-8">No inventory data yet</p>
+              )}
+            </CardContent>
+          </Card>
+        </div>
+
+        {/* Top Products & Profit Margins */}
+        <div className="grid gap-6 lg:grid-cols-2">
+          {/* Top Selling Products */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Trophy className="h-5 w-5" />
+                Top Selling Products
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              {topProducts && topProducts.length > 0 ? (
+                <div className="h-64">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <BarChart data={topProducts} layout="vertical">
+                      <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
+                      <XAxis 
+                        type="number" 
+                        className="text-xs" 
+                        tick={{ fill: 'hsl(var(--muted-foreground))' }}
+                        tickFormatter={(value) => `৳${(value / 1000).toFixed(0)}k`}
+                      />
+                      <YAxis 
+                        type="category" 
+                        dataKey="name" 
+                        className="text-xs" 
+                        tick={{ fill: 'hsl(var(--muted-foreground))' }}
+                        width={100}
+                      />
+                      <Tooltip 
+                        formatter={(value: number, name: string) => [
+                          name === 'revenue' ? `৳${value.toLocaleString()}` : value.toLocaleString(),
+                          name === 'revenue' ? 'Revenue' : 'Qty Sold'
+                        ]}
+                        labelFormatter={(label, payload) => payload?.[0]?.payload?.fullName || label}
+                        contentStyle={{ backgroundColor: 'hsl(var(--background))', border: '1px solid hsl(var(--border))' }}
+                      />
+                      <Legend />
+                      <Bar 
+                        dataKey="revenue" 
+                        fill="hsl(var(--chart-1))" 
+                        radius={[0, 4, 4, 0]}
+                        name="Revenue"
+                        animationBegin={0}
+                        animationDuration={800}
+                        animationEasing="ease-out"
+                      />
+                    </BarChart>
+                  </ResponsiveContainer>
+                </div>
+              ) : (
+                <p className="text-center text-muted-foreground py-8">No sales data yet</p>
+              )}
+            </CardContent>
+          </Card>
+
+          {/* Profit Margins */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Percent className="h-5 w-5" />
+                Profit Margins by Product
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              {profitMargins && profitMargins.length > 0 ? (
+                <div className="h-64">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <BarChart data={profitMargins}>
+                      <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
+                      <XAxis 
+                        dataKey="name" 
+                        className="text-xs" 
+                        tick={{ fill: 'hsl(var(--muted-foreground))' }}
+                        angle={-45}
+                        textAnchor="end"
+                        height={60}
+                      />
+                      <YAxis 
+                        className="text-xs" 
+                        tick={{ fill: 'hsl(var(--muted-foreground))' }}
+                        tickFormatter={(value) => `৳${value}`}
+                      />
+                      <Tooltip 
+                        formatter={(value: number, name: string) => [
+                          `৳${value.toFixed(2)}`,
+                          name === 'cost' ? 'Mfg Cost' : name === 'price' ? 'Selling Price' : 'Profit'
+                        ]}
+                        labelFormatter={(label, payload) => payload?.[0]?.payload?.fullName || label}
+                        contentStyle={{ backgroundColor: 'hsl(var(--background))', border: '1px solid hsl(var(--border))' }}
+                      />
+                      <Legend />
+                      <Bar 
+                        dataKey="cost" 
+                        fill="hsl(var(--chart-3))" 
+                        name="Mfg Cost"
+                        stackId="a"
+                        animationBegin={0}
+                        animationDuration={800}
+                        animationEasing="ease-out"
+                      />
+                      <Bar 
+                        dataKey="profit" 
+                        fill="hsl(var(--chart-2))" 
+                        name="Profit"
+                        stackId="a"
+                        animationBegin={200}
+                        animationDuration={800}
+                        animationEasing="ease-out"
+                      />
+                    </BarChart>
+                  </ResponsiveContainer>
+                </div>
+              ) : (
+                <p className="text-center text-muted-foreground py-8">No product data yet</p>
               )}
             </CardContent>
           </Card>

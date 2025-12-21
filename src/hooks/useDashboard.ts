@@ -467,3 +467,100 @@ export function useInventoryTrends() {
     }
   });
 }
+
+export function useTopSellingProducts() {
+  return useQuery({
+    queryKey: ['top-selling-products'],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('sale_items')
+        .select(`
+          quantity,
+          line_total,
+          product:products(id, name, sku)
+        `);
+      
+      if (error) throw error;
+      
+      // Aggregate by product
+      const productSales: Record<string, { name: string; sku: string; quantity: number; revenue: number }> = {};
+      
+      for (const item of data || []) {
+        const product = item.product as any;
+        if (!product) continue;
+        
+        if (!productSales[product.id]) {
+          productSales[product.id] = {
+            name: product.name,
+            sku: product.sku,
+            quantity: 0,
+            revenue: 0
+          };
+        }
+        productSales[product.id].quantity += Number(item.quantity);
+        productSales[product.id].revenue += Number(item.line_total);
+      }
+      
+      // Sort by revenue and get top 5
+      const topProducts = Object.values(productSales)
+        .sort((a, b) => b.revenue - a.revenue)
+        .slice(0, 5)
+        .map(p => ({
+          name: p.name.length > 15 ? p.name.substring(0, 15) + '...' : p.name,
+          fullName: p.name,
+          quantity: p.quantity,
+          revenue: p.revenue
+        }));
+      
+      return topProducts;
+    }
+  });
+}
+
+export function useProfitMargins() {
+  return useQuery({
+    queryKey: ['profit-margins'],
+    queryFn: async () => {
+      // Get products with their BOM costs
+      const { data: products, error: prodError } = await supabase
+        .from('products')
+        .select('id, name, sku, selling_price, cost_price')
+        .eq('is_active', true);
+      
+      if (prodError) throw prodError;
+      
+      // Get active BOMs for manufacturing cost
+      const { data: boms, error: bomError } = await supabase
+        .from('bom')
+        .select('product_id, estimated_cost')
+        .eq('is_active', true);
+      
+      if (bomError) throw bomError;
+      
+      const bomCosts = Object.fromEntries((boms || []).map(b => [b.product_id, Number(b.estimated_cost)]));
+      
+      // Calculate margins for each product
+      const margins = (products || [])
+        .map(p => {
+          const manufacturingCost = bomCosts[p.id] || Number(p.cost_price) || 0;
+          const sellingPrice = Number(p.selling_price);
+          const profit = sellingPrice - manufacturingCost;
+          const marginPercent = sellingPrice > 0 ? (profit / sellingPrice) * 100 : 0;
+          
+          return {
+            name: p.name.length > 12 ? p.name.substring(0, 12) + '...' : p.name,
+            fullName: p.name,
+            cost: manufacturingCost,
+            price: sellingPrice,
+            profit,
+            margin: marginPercent
+          };
+        })
+        .filter(p => p.price > 0 || p.cost > 0)
+        .sort((a, b) => b.margin - a.margin)
+        .slice(0, 8);
+      
+      return margins;
+    }
+  });
+}
