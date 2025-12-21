@@ -191,6 +191,104 @@ export interface ProductBatch {
   expiry_date?: string;
 }
 
+// Raw Material Batch
+export interface RawMaterialBatch {
+  id: string;
+  raw_material_id: string;
+  batch_number: string;
+  quantity_received: number;
+  quantity_remaining: number;
+  cost_per_unit: number;
+  received_date: string;
+  expiry_date?: string;
+  supplier?: string;
+  notes?: string;
+  is_active: boolean;
+  created_at: string;
+  updated_at: string;
+  raw_material?: RawMaterial;
+}
+
+// Stock Reservation
+export interface StockReservation {
+  id: string;
+  raw_material_id: string;
+  raw_material_batch_id?: string;
+  production_batch_id?: string;
+  quantity_reserved: number;
+  status: 'reserved' | 'consumed' | 'released';
+  notes?: string;
+  created_at: string;
+  updated_at: string;
+  raw_material?: RawMaterial;
+}
+
+// Production Material Usage
+export interface ProductionMaterialUsage {
+  id: string;
+  production_batch_id: string;
+  raw_material_id: string;
+  raw_material_batch_id?: string;
+  quantity_used: number;
+  wastage_quantity: number;
+  created_at: string;
+  raw_material?: RawMaterial;
+}
+
+// MRP Check Result
+export interface MRPResult {
+  raw_material_id: string;
+  material_name: string;
+  material_sku: string;
+  unit: string;
+  required_quantity: number;
+  available_quantity: number;
+  is_sufficient: boolean;
+}
+
+// Stock Summary
+export interface StockSummary {
+  item_id: string;
+  item_name: string;
+  item_sku: string;
+  item_type: 'Raw Material' | 'Finished Goods';
+  category: string;
+  current_stock: number;
+  reserved_stock: number;
+  available_stock: number;
+  unit: string;
+  min_stock_level: number;
+  stock_status: 'OK' | 'Low' | 'Out of Stock';
+  stock_value: number;
+}
+
+// Near Expiry Product
+export interface NearExpiryProduct {
+  batch_id: string;
+  batch_number: string;
+  product_name: string;
+  product_sku: string;
+  quantity_available: number;
+  expiry_date: string;
+  days_until_expiry: number;
+}
+
+// Batch Traceability
+export interface BatchTraceability {
+  production_batch_number: string;
+  product_name: string;
+  manufacturing_date?: string;
+  expiry_date?: string;
+  quantity_produced: number;
+  warehouse?: string;
+  rack?: string;
+  shelf?: string;
+  raw_material_name?: string;
+  raw_material_batch_number?: string;
+  quantity_used?: number;
+  wastage_quantity?: number;
+}
+
 // Dashboard statistics
 export interface DashboardStats {
   totalProducts: number;

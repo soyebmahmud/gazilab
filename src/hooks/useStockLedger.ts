@@ -11,7 +11,7 @@ export function useMaterialStockLedger(materialId?: string) {
         .from('stock_ledger_materials')
         .select(`
           *,
-          raw_material:raw_materials(name, sku, unit)
+          raw_material:raw_materials(id, name, sku, unit, category, cost_per_unit, min_stock_level, current_stock, is_active)
         `)
         .order('created_at', { ascending: false });
       
@@ -22,7 +22,7 @@ export function useMaterialStockLedger(materialId?: string) {
       const { data, error } = await query;
       
       if (error) throw error;
-      return data as StockLedgerMaterial[];
+      return data as unknown as StockLedgerMaterial[];
     },
   });
 }
@@ -35,7 +35,7 @@ export function useProductStockLedger(productId?: string) {
         .from('stock_ledger_products')
         .select(`
           *,
-          product:products(name, sku, unit)
+          product:products(id, name, sku, unit, category, cost_price, selling_price, min_stock_level, current_stock, is_active)
         `)
         .order('created_at', { ascending: false });
       
@@ -46,7 +46,7 @@ export function useProductStockLedger(productId?: string) {
       const { data, error } = await query;
       
       if (error) throw error;
-      return data as StockLedgerProduct[];
+      return data as unknown as StockLedgerProduct[];
     },
   });
 }
