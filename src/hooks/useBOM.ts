@@ -115,6 +115,12 @@ export function useCreateBOM() {
       
       const nextVersion = (existingBOMs?.[0]?.version || 0) + 1;
       
+      // Deactivate existing BOMs for this product
+      await supabase
+        .from('bom')
+        .update({ is_active: false })
+        .eq('product_id', product_id);
+      
       // Create BOM
       const { data: newBom, error: bomError } = await supabase
         .from('bom')
@@ -155,6 +161,30 @@ export function useCreateBOM() {
     },
     onError: (error: Error) => {
       toast.error(`Failed to create BOM: ${error.message}`);
+    },
+  });
+}
+
+// Get products that don't have any BOM yet (for initial BOM creation)
+export function useProductsWithoutBOM() {
+  return useQuery({
+    queryKey: ['products-without-bom'],
+    queryFn: async () => {
+      const { data: products, error: productsError } = await supabase
+        .from('products')
+        .select('*')
+        .eq('is_active', true);
+      
+      if (productsError) throw productsError;
+      
+      const { data: boms, error: bomsError } = await supabase
+        .from('bom')
+        .select('product_id');
+      
+      if (bomsError) throw bomsError;
+      
+      const productIdsWithBom = new Set(boms.map(b => b.product_id));
+      return products.filter(p => !productIdsWithBom.has(p.id));
     },
   });
 }

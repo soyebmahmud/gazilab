@@ -10,8 +10,9 @@ import { Badge } from '@/components/ui/badge';
 import { useProductionBatches, useCreateProduction, useStartProduction, useCompleteProduction } from '@/hooks/useProduction';
 import { useProducts } from '@/hooks/useProducts';
 import { useActiveBOM } from '@/hooks/useBOM';
-import { Plus, Play, CheckCircle } from 'lucide-react';
+import { Plus, Play, CheckCircle, Calendar, AlertTriangle } from 'lucide-react';
 import { useState } from 'react';
+import { format } from 'date-fns';
 
 function CreateProductionDialog({ onClose }: { onClose: () => void }) {
   const { data: products } = useProducts();
@@ -19,18 +20,44 @@ function CreateProductionDialog({ onClose }: { onClose: () => void }) {
   const [productId, setProductId] = useState('');
   const { data: activeBom } = useActiveBOM(productId);
   const [quantity, setQuantity] = useState(0);
+  const [manufacturingDate, setManufacturingDate] = useState(format(new Date(), 'yyyy-MM-dd'));
+  const [expiryDate, setExpiryDate] = useState('');
+  const [notes, setNotes] = useState('');
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!activeBom) return;
-    await createProduction.mutateAsync({ product_id: productId, bom_id: activeBom.id, quantity_planned: quantity });
+    await createProduction.mutateAsync({ 
+      product_id: productId, 
+      bom_id: activeBom.id, 
+      quantity_planned: quantity,
+      manufacturing_date: manufacturingDate || undefined,
+      expiry_date: expiryDate || undefined,
+      notes: notes || undefined
+    });
     onClose();
   };
 
+  // Calculate material requirements
+  const materialRequirements = activeBom?.items?.map(item => {
+    const requiredQty = item.quantity_per_unit * (1 + item.wastage_percent / 100) * quantity;
+    const available = item.raw_material?.current_stock || 0;
+    const isInsufficient = available < requiredQty;
+    return {
+      name: item.raw_material?.name,
+      unit: item.raw_material?.unit,
+      required: requiredQty,
+      available,
+      isInsufficient
+    };
+  }) || [];
+
+  const hasInsufficientStock = materialRequirements.some(m => m.isInsufficient);
+
   return (
-    <form onSubmit={handleSubmit} className="space-y-4">
+    <form onSubmit={handleSubmit} className="space-y-4 max-h-[70vh] overflow-y-auto">
       <div className="space-y-2">
-        <Label>Product</Label>
+        <Label>Product *</Label>
         <Select value={productId} onValueChange={setProductId}>
           <SelectTrigger><SelectValue placeholder="Select product" /></SelectTrigger>
           <SelectContent>
@@ -38,21 +65,112 @@ function CreateProductionDialog({ onClose }: { onClose: () => void }) {
           </SelectContent>
         </Select>
       </div>
+
       {activeBom && (
         <div className="p-3 bg-accent rounded-lg text-sm">
-          <p>BOM v{activeBom.version} - Est. Cost: ₹{Number(activeBom.estimated_cost).toFixed(2)}</p>
+          <p className="font-medium">BOM v{activeBom.version}</p>
+          <p className="text-muted-foreground">Est. Cost: ₹{Number(activeBom.estimated_cost).toFixed(2)} per unit</p>
         </div>
       )}
+
       {!activeBom && productId && (
-        <p className="text-destructive text-sm">No active BOM found for this product</p>
+        <div className="flex items-center gap-2 p-3 bg-destructive/10 rounded-lg">
+          <AlertTriangle className="h-4 w-4 text-destructive" />
+          <p className="text-destructive text-sm">No active BOM found for this product. Please create a BOM first.</p>
+        </div>
       )}
+
       <div className="space-y-2">
-        <Label>Quantity to Produce</Label>
-        <Input type="number" value={quantity} onChange={(e) => setQuantity(parseFloat(e.target.value) || 0)} />
+        <Label>Quantity to Produce *</Label>
+        <Input 
+          type="number" 
+          value={quantity} 
+          onChange={(e) => setQuantity(parseFloat(e.target.value) || 0)} 
+          min="0"
+          step="1"
+        />
       </div>
-      <div className="flex justify-end gap-2">
+
+      {/* Material Requirements Preview */}
+      {activeBom && quantity > 0 && (
+        <div className="space-y-2">
+          <Label className="text-sm">Material Requirements</Label>
+          <div className="border rounded-lg overflow-hidden">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead className="text-xs">Material</TableHead>
+                  <TableHead className="text-xs text-right">Required</TableHead>
+                  <TableHead className="text-xs text-right">Available</TableHead>
+                  <TableHead className="text-xs text-right">Status</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {materialRequirements.map((m, i) => (
+                  <TableRow key={i}>
+                    <TableCell className="text-sm">{m.name}</TableCell>
+                    <TableCell className="text-sm text-right">{m.required.toFixed(3)} {m.unit}</TableCell>
+                    <TableCell className="text-sm text-right">{m.available.toFixed(3)} {m.unit}</TableCell>
+                    <TableCell className="text-right">
+                      {m.isInsufficient ? (
+                        <Badge variant="destructive" className="text-xs">Insufficient</Badge>
+                      ) : (
+                        <Badge className="bg-primary text-xs">OK</Badge>
+                      )}
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </div>
+          {hasInsufficientStock && (
+            <p className="text-xs text-destructive">Cannot create batch: Insufficient raw materials</p>
+          )}
+        </div>
+      )}
+
+      {/* Dates */}
+      <div className="grid grid-cols-2 gap-4">
+        <div className="space-y-2">
+          <Label className="flex items-center gap-1">
+            <Calendar className="h-3 w-3" />
+            Manufacturing Date
+          </Label>
+          <Input 
+            type="date" 
+            value={manufacturingDate} 
+            onChange={(e) => setManufacturingDate(e.target.value)} 
+          />
+        </div>
+        <div className="space-y-2">
+          <Label className="flex items-center gap-1">
+            <Calendar className="h-3 w-3" />
+            Expiry Date
+          </Label>
+          <Input 
+            type="date" 
+            value={expiryDate} 
+            onChange={(e) => setExpiryDate(e.target.value)}
+            min={manufacturingDate}
+          />
+        </div>
+      </div>
+
+      {/* Notes */}
+      <div className="space-y-2">
+        <Label>Notes (Optional)</Label>
+        <Input 
+          value={notes} 
+          onChange={(e) => setNotes(e.target.value)} 
+          placeholder="Any special instructions..."
+        />
+      </div>
+
+      <div className="flex justify-end gap-2 pt-4 border-t">
         <Button type="button" variant="outline" onClick={onClose}>Cancel</Button>
-        <Button type="submit" disabled={!activeBom || quantity <= 0}>Create Batch</Button>
+        <Button type="submit" disabled={!activeBom || quantity <= 0 || hasInsufficientStock || createProduction.isPending}>
+          Create Batch
+        </Button>
       </div>
     </form>
   );
@@ -77,6 +195,11 @@ export default function ProductionPage() {
     if (qty) completeProduction.mutate({ batchId: id, quantityProduced: parseFloat(qty) });
   };
 
+  const formatDate = (date: string | null) => {
+    if (!date) return '-';
+    return format(new Date(date), 'dd MMM yyyy');
+  };
+
   return (
     <MainLayout>
       <div className="space-y-6">
@@ -89,7 +212,7 @@ export default function ProductionPage() {
             <DialogTrigger asChild>
               <Button><Plus className="h-4 w-4 mr-2" /> New Batch</Button>
             </DialogTrigger>
-            <DialogContent>
+            <DialogContent className="max-w-xl">
               <DialogHeader><DialogTitle>Create Production Batch</DialogTitle></DialogHeader>
               <CreateProductionDialog onClose={() => setDialogOpen(false)} />
             </DialogContent>
@@ -100,14 +223,20 @@ export default function ProductionPage() {
           <CardContent className="p-0">
             {isLoading ? (
               <div className="p-8 text-center">Loading...</div>
+            ) : batches?.length === 0 ? (
+              <div className="p-8 text-center text-muted-foreground">
+                No production batches yet. Create one to get started.
+              </div>
             ) : (
               <Table>
                 <TableHeader>
                   <TableRow>
                     <TableHead>Batch #</TableHead>
                     <TableHead>Product</TableHead>
-                    <TableHead>Planned</TableHead>
-                    <TableHead>Produced</TableHead>
+                    <TableHead className="text-right">Planned</TableHead>
+                    <TableHead className="text-right">Produced</TableHead>
+                    <TableHead>Mfg Date</TableHead>
+                    <TableHead>Expiry</TableHead>
                     <TableHead>Status</TableHead>
                     <TableHead className="text-right">Actions</TableHead>
                   </TableRow>
@@ -115,11 +244,13 @@ export default function ProductionPage() {
                 <TableBody>
                   {batches?.map((batch: any) => (
                     <TableRow key={batch.id}>
-                      <TableCell className="font-mono">{batch.batch_number}</TableCell>
-                      <TableCell>{batch.product?.name}</TableCell>
-                      <TableCell>{batch.quantity_planned}</TableCell>
-                      <TableCell>{batch.quantity_produced}</TableCell>
-                      <TableCell><Badge className={statusColors[batch.status]}>{batch.status}</Badge></TableCell>
+                      <TableCell className="font-mono text-sm">{batch.batch_number}</TableCell>
+                      <TableCell className="font-medium">{batch.product?.name}</TableCell>
+                      <TableCell className="text-right">{batch.quantity_planned}</TableCell>
+                      <TableCell className="text-right">{batch.quantity_produced}</TableCell>
+                      <TableCell className="text-sm">{formatDate(batch.manufacturing_date)}</TableCell>
+                      <TableCell className="text-sm">{formatDate(batch.expiry_date)}</TableCell>
+                      <TableCell><Badge className={statusColors[batch.status]}>{batch.status.replace('_', ' ')}</Badge></TableCell>
                       <TableCell className="text-right">
                         {batch.status === 'planned' && (
                           <Button size="sm" variant="outline" onClick={() => handleStart(batch.id)}>
