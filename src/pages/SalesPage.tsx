@@ -119,10 +119,10 @@ function CreateSaleDialog({ onClose }: { onClose: () => void }) {
       <div className="grid grid-cols-2 gap-4">
         <div className="space-y-2">
           <Label>Customer (Optional)</Label>
-          <Select value={customerId} onValueChange={setCustomerId}>
+          <Select value={customerId} onValueChange={(v) => setCustomerId(v === 'walk-in' ? '' : v)}>
             <SelectTrigger><SelectValue placeholder="Walk-in customer" /></SelectTrigger>
             <SelectContent>
-              <SelectItem value="">Walk-in Customer</SelectItem>
+              <SelectItem value="walk-in">Walk-in Customer</SelectItem>
               {customers?.map(c => (
                 <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>
               ))}
