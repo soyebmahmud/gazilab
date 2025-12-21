@@ -1,7 +1,7 @@
 import { MainLayout } from '@/components/layout/MainLayout';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { useDashboardStats, useInventoryInsights, useManufacturingInsights, useAlerts, useSalesTrends, useProductionTrends, useWeeklySales, useInventoryTrends, useTopSellingProducts, useProfitMargins } from '@/hooks/useDashboard';
-import { Package, Leaf, DollarSign, Factory, AlertTriangle, TrendingUp, Boxes, Ban, ShoppingCart, Activity, Calendar, Warehouse, Trophy, Percent } from 'lucide-react';
+import { useDashboardStats, useInventoryInsights, useManufacturingInsights, useAlerts, useSalesTrends, useProductionTrends, useWeeklySales, useInventoryTrends, useTopSellingProducts, useProfitMargins, useMaterialConsumption, useSalesByCustomer } from '@/hooks/useDashboard';
+import { Package, Leaf, DollarSign, Factory, AlertTriangle, TrendingUp, Boxes, Ban, ShoppingCart, Activity, Calendar, Warehouse, Trophy, Percent, FlaskConical, Users } from 'lucide-react';
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip, BarChart, Bar, XAxis, YAxis, CartesianGrid, LineChart, Line, Legend } from 'recharts';
 import { Badge } from '@/components/ui/badge';
 
@@ -43,6 +43,8 @@ export default function Dashboard() {
   const { data: inventoryTrends } = useInventoryTrends();
   const { data: topProducts } = useTopSellingProducts();
   const { data: profitMargins } = useProfitMargins();
+  const { data: materialConsumption } = useMaterialConsumption();
+  const { data: salesByCustomer } = useSalesByCustomer();
 
   if (statsLoading) {
     return (
@@ -572,6 +574,101 @@ export default function Dashboard() {
                 </div>
               ) : (
                 <p className="text-center text-muted-foreground py-4">All materials have sufficient stock</p>
+              )}
+            </CardContent>
+          </Card>
+        </div>
+
+        {/* Material Consumption & Sales by Customer */}
+        <div className="grid gap-6 lg:grid-cols-2">
+          {/* Material Consumption Chart */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <FlaskConical className="h-5 w-5" />
+                Material Consumption in Production
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              {materialConsumption && materialConsumption.length > 0 ? (
+                <div className="h-64">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <BarChart data={materialConsumption} layout="vertical">
+                      <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
+                      <XAxis type="number" tick={{ fill: 'hsl(var(--muted-foreground))' }} />
+                      <YAxis dataKey="name" type="category" width={80} tick={{ fill: 'hsl(var(--muted-foreground))', fontSize: 11 }} />
+                      <Tooltip 
+                        contentStyle={{ backgroundColor: 'hsl(var(--background))', border: '1px solid hsl(var(--border))' }}
+                        formatter={(value: number) => [value.toFixed(2), '']}
+                      />
+                      <Legend />
+                      <Bar 
+                        dataKey="used" 
+                        stackId="a"
+                        fill="hsl(var(--chart-1))" 
+                        name="Used"
+                        animationBegin={0}
+                        animationDuration={800}
+                        animationEasing="ease-out"
+                      />
+                      <Bar 
+                        dataKey="wastage" 
+                        stackId="a"
+                        fill="hsl(var(--chart-3))" 
+                        name="Wastage"
+                        animationBegin={200}
+                        animationDuration={800}
+                        animationEasing="ease-out"
+                      />
+                    </BarChart>
+                  </ResponsiveContainer>
+                </div>
+              ) : (
+                <p className="text-center text-muted-foreground py-8">No production data yet</p>
+              )}
+            </CardContent>
+          </Card>
+
+          {/* Sales by Customer Chart */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Users className="h-5 w-5" />
+                Top Customers by Sales
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              {salesByCustomer && salesByCustomer.length > 0 ? (
+                <div className="h-64">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <BarChart data={salesByCustomer} layout="vertical">
+                      <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
+                      <XAxis 
+                        type="number" 
+                        tick={{ fill: 'hsl(var(--muted-foreground))' }}
+                        tickFormatter={(value) => `৳${(value / 1000).toFixed(0)}k`}
+                      />
+                      <YAxis dataKey="name" type="category" width={100} tick={{ fill: 'hsl(var(--muted-foreground))', fontSize: 11 }} />
+                      <Tooltip 
+                        contentStyle={{ backgroundColor: 'hsl(var(--background))', border: '1px solid hsl(var(--border))' }}
+                        formatter={(value: number, name: string) => [
+                          name === 'total' ? `৳${value.toLocaleString()}` : value,
+                          name === 'total' ? 'Sales' : 'Orders'
+                        ]}
+                      />
+                      <Bar 
+                        dataKey="total" 
+                        fill="hsl(var(--chart-4))" 
+                        radius={[0, 4, 4, 0]}
+                        animationBegin={0}
+                        animationDuration={800}
+                        animationEasing="ease-out"
+                      />
+                    </BarChart>
+                  </ResponsiveContainer>
+                </div>
+              ) : (
+                <p className="text-center text-muted-foreground py-8">No customer sales data yet</p>
               )}
             </CardContent>
           </Card>

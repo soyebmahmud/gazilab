@@ -10,9 +10,11 @@ import { Badge } from '@/components/ui/badge';
 import { useProductionBatches, useCreateProduction, useStartProduction, useCompleteProduction } from '@/hooks/useProduction';
 import { useProducts } from '@/hooks/useProducts';
 import { useActiveBOM } from '@/hooks/useBOM';
-import { Plus, Play, CheckCircle, Calendar, AlertTriangle } from 'lucide-react';
+import { Plus, Play, CheckCircle, Calendar, AlertTriangle, PackagePlus } from 'lucide-react';
 import { useState } from 'react';
 import { format } from 'date-fns';
+import { AddStockDialog } from '@/components/AddStockDialog';
+import { RawMaterial } from '@/types/database';
 
 function CreateProductionDialog({ onClose }: { onClose: () => void }) {
   const { data: products } = useProducts();
@@ -23,6 +25,7 @@ function CreateProductionDialog({ onClose }: { onClose: () => void }) {
   const [manufacturingDate, setManufacturingDate] = useState(format(new Date(), 'yyyy-MM-dd'));
   const [expiryDate, setExpiryDate] = useState('');
   const [notes, setNotes] = useState('');
+  const [addStockMaterial, setAddStockMaterial] = useState<RawMaterial | null>(null);
 
   // Get selected product
   const selectedProduct = products?.find(p => p.id === productId);
@@ -55,7 +58,8 @@ function CreateProductionDialog({ onClose }: { onClose: () => void }) {
       unit: item.raw_material?.unit,
       required: requiredQty,
       available,
-      isInsufficient
+      isInsufficient,
+      raw_material: item.raw_material as RawMaterial | undefined
     };
   }) || [];
 
@@ -127,7 +131,15 @@ function CreateProductionDialog({ onClose }: { onClose: () => void }) {
                     <TableCell className="text-sm text-right">{m.available.toFixed(3)} {m.unit}</TableCell>
                     <TableCell className="text-right">
                       {m.isInsufficient ? (
-                        <Badge variant="destructive" className="text-xs">Insufficient</Badge>
+                        <Button 
+                          size="sm" 
+                          variant="destructive"
+                          onClick={() => m.raw_material && setAddStockMaterial(m.raw_material)}
+                          className="h-6 text-xs px-2"
+                        >
+                          <PackagePlus className="h-3 w-3 mr-1" />
+                          Add Stock
+                        </Button>
                       ) : (
                         <Badge className="bg-primary text-xs">OK</Badge>
                       )}
@@ -138,10 +150,20 @@ function CreateProductionDialog({ onClose }: { onClose: () => void }) {
             </Table>
           </div>
           {hasInsufficientStock && (
-            <p className="text-xs text-destructive">Cannot create batch: Insufficient raw materials</p>
+            <div className="flex items-center gap-2 p-2 bg-destructive/10 rounded-lg">
+              <AlertTriangle className="h-4 w-4 text-destructive" />
+              <p className="text-xs text-destructive">Cannot create batch: Add stock to insufficient materials</p>
+            </div>
           )}
         </div>
       )}
+
+      {/* Add Stock Dialog */}
+      <AddStockDialog 
+        open={!!addStockMaterial} 
+        onOpenChange={(open) => !open && setAddStockMaterial(null)} 
+        material={addStockMaterial} 
+      />
 
       {/* Dates */}
       <div className="grid grid-cols-2 gap-4">

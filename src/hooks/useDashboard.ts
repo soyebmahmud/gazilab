@@ -504,13 +504,7 @@ export function useTopSellingProducts() {
       // Sort by revenue and get top 5
       const topProducts = Object.values(productSales)
         .sort((a, b) => b.revenue - a.revenue)
-        .slice(0, 5)
-        .map(p => ({
-          name: p.name.length > 15 ? p.name.substring(0, 15) + '...' : p.name,
-          fullName: p.name,
-          quantity: p.quantity,
-          revenue: p.revenue
-        }));
+        .slice(0, 5);
       
       return topProducts;
     }
@@ -521,46 +515,119 @@ export function useProfitMargins() {
   return useQuery({
     queryKey: ['profit-margins'],
     queryFn: async () => {
-      // Get products with their BOM costs
-      const { data: products, error: prodError } = await supabase
+      const { data, error } = await supabase
         .from('products')
-        .select('id, name, sku, selling_price, cost_price')
-        .eq('is_active', true);
+        .select('id, name, cost_price, selling_price')
+        .eq('is_active', true)
+        .order('selling_price', { ascending: false })
+        .limit(10);
       
-      if (prodError) throw prodError;
+      if (error) throw error;
       
-      // Get active BOMs for manufacturing cost
-      const { data: boms, error: bomError } = await supabase
-        .from('bom')
-        .select('product_id, estimated_cost')
-        .eq('is_active', true);
+      return (data || []).map(p => ({
+        name: p.name.length > 15 ? p.name.substring(0, 15) + '...' : p.name,
+        cost: Number(p.cost_price),
+        profit: Number(p.selling_price) - Number(p.cost_price),
+        margin: Number(p.cost_price) > 0 
+          ? ((Number(p.selling_price) - Number(p.cost_price)) / Number(p.selling_price) * 100).toFixed(1)
+          : 0
+      }));
+    }
+  });
+}
+
+export function useMaterialConsumption() {
+  return useQuery({
+    queryKey: ['material-consumption'],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('production_material_usage')
+        .select(`
+          quantity_used,
+          wastage_quantity,
+          raw_material:raw_materials(id, name, unit)
+        `);
       
-      if (bomError) throw bomError;
+      if (error) throw error;
       
-      const bomCosts = Object.fromEntries((boms || []).map(b => [b.product_id, Number(b.estimated_cost)]));
+      // Aggregate by material
+      const materialUsage: Record<string, { name: string; unit: string; used: number; wastage: number }> = {};
       
-      // Calculate margins for each product
-      const margins = (products || [])
-        .map(p => {
-          const manufacturingCost = bomCosts[p.id] || Number(p.cost_price) || 0;
-          const sellingPrice = Number(p.selling_price);
-          const profit = sellingPrice - manufacturingCost;
-          const marginPercent = sellingPrice > 0 ? (profit / sellingPrice) * 100 : 0;
-          
-          return {
-            name: p.name.length > 12 ? p.name.substring(0, 12) + '...' : p.name,
-            fullName: p.name,
-            cost: manufacturingCost,
-            price: sellingPrice,
-            profit,
-            margin: marginPercent
+      for (const item of data || []) {
+        const material = item.raw_material as any;
+        if (!material) continue;
+        
+        if (!materialUsage[material.id]) {
+          materialUsage[material.id] = {
+            name: material.name,
+            unit: material.unit,
+            used: 0,
+            wastage: 0
           };
-        })
-        .filter(p => p.price > 0 || p.cost > 0)
-        .sort((a, b) => b.margin - a.margin)
-        .slice(0, 8);
+        }
+        materialUsage[material.id].used += Number(item.quantity_used);
+        materialUsage[material.id].wastage += Number(item.wastage_quantity);
+      }
       
-      return margins;
+      // Sort by total used and get top 8
+      const topMaterials = Object.values(materialUsage)
+        .sort((a, b) => b.used - a.used)
+        .slice(0, 8)
+        .map(m => ({
+          name: m.name.length > 12 ? m.name.substring(0, 12) + '...' : m.name,
+          used: m.used,
+          wastage: m.wastage,
+          total: m.used + m.wastage
+        }));
+      
+      return topMaterials;
+    }
+  });
+}
+
+export function useSalesByCustomer() {
+  return useQuery({
+    queryKey: ['sales-by-customer'],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('sales')
+        .select(`
+          total_amount,
+          customer:customers(id, name)
+        `);
+      
+      if (error) throw error;
+      
+      // Aggregate by customer
+      const customerSales: Record<string, { name: string; total: number; count: number }> = {};
+      
+      for (const sale of data || []) {
+        const customer = sale.customer as any;
+        const customerId = customer?.id || 'walk-in';
+        const customerName = customer?.name || 'Walk-in Customer';
+        
+        if (!customerSales[customerId]) {
+          customerSales[customerId] = {
+            name: customerName,
+            total: 0,
+            count: 0
+          };
+        }
+        customerSales[customerId].total += Number(sale.total_amount);
+        customerSales[customerId].count += 1;
+      }
+      
+      // Sort by total and get top 5
+      const topCustomers = Object.values(customerSales)
+        .sort((a, b) => b.total - a.total)
+        .slice(0, 5)
+        .map(c => ({
+          name: c.name.length > 15 ? c.name.substring(0, 15) + '...' : c.name,
+          total: c.total,
+          orders: c.count
+        }));
+      
+      return topCustomers;
     }
   });
 }
