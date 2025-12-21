@@ -16,7 +16,8 @@ import {
   AlertTriangle,
   PackageX,
   RotateCcw,
-  LogOut
+  LogOut,
+  Bot
 } from 'lucide-react';
 import gaziLogo from '@/assets/gazi-logo.svg';
 import { useAuth } from '@/hooks/useAuth';
@@ -37,6 +38,7 @@ const navItems = [
   { to: '/expiry-alerts', icon: AlertTriangle, label: 'Expiry Alerts' },
   { to: '/customers', icon: Users, label: 'Customers' },
   { to: '/sellers', icon: Building2, label: 'Sellers' },
+  { to: '/ai-hub', icon: Bot, label: 'AI Hub' },
   { to: '/reports', icon: FileText, label: 'Reports' },
   { to: '/backup', icon: Database, label: 'Backup & Restore' },
 ];
