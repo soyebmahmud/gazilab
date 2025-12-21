@@ -154,8 +154,11 @@ export type Database = {
           product_id: string
           quantity_planned: number
           quantity_produced: number
+          rack: string | null
+          shelf: string | null
           status: Database["public"]["Enums"]["production_status"]
           updated_at: string
+          warehouse: string | null
         }
         Insert: {
           batch_number: string
@@ -168,8 +171,11 @@ export type Database = {
           product_id: string
           quantity_planned: number
           quantity_produced?: number
+          rack?: string | null
+          shelf?: string | null
           status?: Database["public"]["Enums"]["production_status"]
           updated_at?: string
+          warehouse?: string | null
         }
         Update: {
           batch_number?: string
@@ -182,8 +188,11 @@ export type Database = {
           product_id?: string
           quantity_planned?: number
           quantity_produced?: number
+          rack?: string | null
+          shelf?: string | null
           status?: Database["public"]["Enums"]["production_status"]
           updated_at?: string
+          warehouse?: string | null
         }
         Relationships: [
           {
@@ -202,6 +211,58 @@ export type Database = {
           },
         ]
       }
+      production_material_usage: {
+        Row: {
+          created_at: string
+          id: string
+          production_batch_id: string
+          quantity_used: number
+          raw_material_batch_id: string | null
+          raw_material_id: string
+          wastage_quantity: number
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          production_batch_id: string
+          quantity_used?: number
+          raw_material_batch_id?: string | null
+          raw_material_id: string
+          wastage_quantity?: number
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          production_batch_id?: string
+          quantity_used?: number
+          raw_material_batch_id?: string | null
+          raw_material_id?: string
+          wastage_quantity?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "production_material_usage_production_batch_id_fkey"
+            columns: ["production_batch_id"]
+            isOneToOne: false
+            referencedRelation: "production_batches"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "production_material_usage_raw_material_batch_id_fkey"
+            columns: ["raw_material_batch_id"]
+            isOneToOne: false
+            referencedRelation: "raw_material_batches"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "production_material_usage_raw_material_id_fkey"
+            columns: ["raw_material_id"]
+            isOneToOne: false
+            referencedRelation: "raw_materials"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       products: {
         Row: {
           category: Database["public"]["Enums"]["product_category"]
@@ -215,11 +276,14 @@ export type Database = {
           manufacturing_date: string | null
           min_stock_level: number
           name: string
+          rack: string | null
           selling_price: number
+          shelf: string | null
           sku: string
           unit: Database["public"]["Enums"]["unit_type"]
           units_per_pack: number
           updated_at: string
+          warehouse: string | null
         }
         Insert: {
           category?: Database["public"]["Enums"]["product_category"]
@@ -233,11 +297,14 @@ export type Database = {
           manufacturing_date?: string | null
           min_stock_level?: number
           name: string
+          rack?: string | null
           selling_price?: number
+          shelf?: string | null
           sku: string
           unit?: Database["public"]["Enums"]["unit_type"]
           units_per_pack?: number
           updated_at?: string
+          warehouse?: string | null
         }
         Update: {
           category?: Database["public"]["Enums"]["product_category"]
@@ -251,13 +318,72 @@ export type Database = {
           manufacturing_date?: string | null
           min_stock_level?: number
           name?: string
+          rack?: string | null
           selling_price?: number
+          shelf?: string | null
           sku?: string
           unit?: Database["public"]["Enums"]["unit_type"]
           units_per_pack?: number
           updated_at?: string
+          warehouse?: string | null
         }
         Relationships: []
+      }
+      raw_material_batches: {
+        Row: {
+          batch_number: string
+          cost_per_unit: number
+          created_at: string
+          expiry_date: string | null
+          id: string
+          is_active: boolean
+          notes: string | null
+          quantity_received: number
+          quantity_remaining: number
+          raw_material_id: string
+          received_date: string
+          supplier: string | null
+          updated_at: string
+        }
+        Insert: {
+          batch_number: string
+          cost_per_unit?: number
+          created_at?: string
+          expiry_date?: string | null
+          id?: string
+          is_active?: boolean
+          notes?: string | null
+          quantity_received?: number
+          quantity_remaining?: number
+          raw_material_id: string
+          received_date?: string
+          supplier?: string | null
+          updated_at?: string
+        }
+        Update: {
+          batch_number?: string
+          cost_per_unit?: number
+          created_at?: string
+          expiry_date?: string | null
+          id?: string
+          is_active?: boolean
+          notes?: string | null
+          quantity_received?: number
+          quantity_remaining?: number
+          raw_material_id?: string
+          received_date?: string
+          supplier?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "raw_material_batches_raw_material_id_fkey"
+            columns: ["raw_material_id"]
+            isOneToOne: false
+            referencedRelation: "raw_materials"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       raw_materials: {
         Row: {
@@ -474,6 +600,7 @@ export type Database = {
           movement_type: Database["public"]["Enums"]["stock_movement_type"]
           notes: string | null
           quantity: number
+          raw_material_batch_id: string | null
           raw_material_id: string
           reference_id: string | null
           reference_type: string | null
@@ -485,6 +612,7 @@ export type Database = {
           movement_type: Database["public"]["Enums"]["stock_movement_type"]
           notes?: string | null
           quantity: number
+          raw_material_batch_id?: string | null
           raw_material_id: string
           reference_id?: string | null
           reference_type?: string | null
@@ -496,11 +624,19 @@ export type Database = {
           movement_type?: Database["public"]["Enums"]["stock_movement_type"]
           notes?: string | null
           quantity?: number
+          raw_material_batch_id?: string | null
           raw_material_id?: string
           reference_id?: string | null
           reference_type?: string | null
         }
         Relationships: [
+          {
+            foreignKeyName: "stock_ledger_materials_raw_material_batch_id_fkey"
+            columns: ["raw_material_batch_id"]
+            isOneToOne: false
+            referencedRelation: "raw_material_batches"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "stock_ledger_materials_raw_material_id_fkey"
             columns: ["raw_material_id"]
@@ -554,6 +690,64 @@ export type Database = {
           },
         ]
       }
+      stock_reservations: {
+        Row: {
+          created_at: string
+          id: string
+          notes: string | null
+          production_batch_id: string | null
+          quantity_reserved: number
+          raw_material_batch_id: string | null
+          raw_material_id: string
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          notes?: string | null
+          production_batch_id?: string | null
+          quantity_reserved?: number
+          raw_material_batch_id?: string | null
+          raw_material_id: string
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          notes?: string | null
+          production_batch_id?: string | null
+          quantity_reserved?: number
+          raw_material_batch_id?: string | null
+          raw_material_id?: string
+          status?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "stock_reservations_production_batch_id_fkey"
+            columns: ["production_batch_id"]
+            isOneToOne: false
+            referencedRelation: "production_batches"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "stock_reservations_raw_material_batch_id_fkey"
+            columns: ["raw_material_batch_id"]
+            isOneToOne: false
+            referencedRelation: "raw_material_batches"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "stock_reservations_raw_material_id_fkey"
+            columns: ["raw_material_id"]
+            isOneToOne: false
+            referencedRelation: "raw_materials"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Views: {
       [_ in never]: never
@@ -567,7 +761,40 @@ export type Database = {
           usage_count: number
         }[]
       }
+      check_mrp: {
+        Args: { p_product_id: string; p_quantity: number }
+        Returns: {
+          available_quantity: number
+          is_sufficient: boolean
+          material_name: string
+          material_sku: string
+          raw_material_id: string
+          required_quantity: number
+          unit: string
+        }[]
+      }
       generate_invoice_number: { Args: never; Returns: string }
+      get_available_material_stock: {
+        Args: { p_material_id: string }
+        Returns: number
+      }
+      get_batch_traceability: {
+        Args: { p_production_batch_id: string }
+        Returns: {
+          expiry_date: string
+          manufacturing_date: string
+          product_name: string
+          production_batch_number: string
+          quantity_produced: number
+          quantity_used: number
+          rack: string
+          raw_material_batch_number: string
+          raw_material_name: string
+          shelf: string
+          warehouse: string
+          wastage_quantity: number
+        }[]
+      }
       get_material_usage: {
         Args: { material_id: string }
         Returns: {
@@ -578,6 +805,18 @@ export type Database = {
           wastage_percent: number
         }[]
       }
+      get_near_expiry_products: {
+        Args: { p_days?: number }
+        Returns: {
+          batch_id: string
+          batch_number: string
+          days_until_expiry: number
+          expiry_date: string
+          product_name: string
+          product_sku: string
+          quantity_available: number
+        }[]
+      }
       get_product_batches: {
         Args: { p_product_id: string }
         Returns: {
@@ -586,6 +825,23 @@ export type Database = {
           expiry_date: string
           manufacturing_date: string
           quantity_available: number
+        }[]
+      }
+      get_stock_summary: {
+        Args: never
+        Returns: {
+          available_stock: number
+          category: string
+          current_stock: number
+          item_id: string
+          item_name: string
+          item_sku: string
+          item_type: string
+          min_stock_level: number
+          reserved_stock: number
+          stock_status: string
+          stock_value: number
+          unit: string
         }[]
       }
     }
