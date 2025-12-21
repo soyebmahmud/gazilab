@@ -14,6 +14,8 @@ import SellersPage from "./pages/SellersPage";
 import SalesPage from "./pages/SalesPage";
 import ReportsPage from "./pages/ReportsPage";
 import BackupRestorePage from "./pages/BackupRestorePage";
+import PurchaseOrdersPage from "./pages/PurchaseOrdersPage";
+import ExpiryAlertsPage from "./pages/ExpiryAlertsPage";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -31,9 +33,11 @@ const App = () => (
           <Route path="/bom" element={<BOMPage />} />
           <Route path="/production" element={<ProductionPage />} />
           <Route path="/stock-ledger" element={<StockLedgerPage />} />
+          <Route path="/purchase-orders" element={<PurchaseOrdersPage />} />
           <Route path="/customers" element={<CustomersPage />} />
           <Route path="/sellers" element={<SellersPage />} />
           <Route path="/sales" element={<SalesPage />} />
+          <Route path="/expiry-alerts" element={<ExpiryAlertsPage />} />
           <Route path="/reports" element={<ReportsPage />} />
           <Route path="/backup" element={<BackupRestorePage />} />
           <Route path="*" element={<NotFound />} />
