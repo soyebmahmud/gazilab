@@ -8,7 +8,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { useSalesReturns, RETURN_REASONS } from '@/hooks/useSalesReturns';
 import { format } from 'date-fns';
-import { Calendar, Filter, RotateCcw, Package, AlertTriangle } from 'lucide-react';
+import { Filter, RotateCcw, Package, AlertTriangle, Download } from 'lucide-react';
 
 export default function SalesReturnsPage() {
   const { data: returns, isLoading } = useSalesReturns();
@@ -70,6 +70,33 @@ export default function SalesReturnsPage() {
     setStatusFilter('all');
   };
 
+  const exportToCSV = () => {
+    if (filteredReturns.length === 0) return;
+    
+    const headers = ['Invoice No', 'Return Date', 'Product', 'SKU', 'Quantity', 'Reason', 'Status', 'Notes'];
+    const rows = filteredReturns.map(item => [
+      item.original_invoice_number,
+      format(new Date(item.return_date), 'yyyy-MM-dd'),
+      item.product?.name || 'Unknown',
+      item.product?.sku || '',
+      item.quantity_returned.toString(),
+      getReasonLabel(item.reason),
+      item.return_status,
+      item.notes || ''
+    ]);
+    
+    const csvContent = [
+      headers.join(','),
+      ...rows.map(row => row.map(cell => `"${cell.replace(/"/g, '""')}"`).join(','))
+    ].join('\n');
+    
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const link = document.createElement('a');
+    link.href = URL.createObjectURL(blob);
+    link.download = `sales-returns-${format(new Date(), 'yyyy-MM-dd')}.csv`;
+    link.click();
+  };
+
   // Summary stats
   const totalReturns = filteredReturns.length;
   const totalQuantity = filteredReturns.reduce((sum, r) => sum + r.quantity_returned, 0);
@@ -79,9 +106,15 @@ export default function SalesReturnsPage() {
   return (
     <MainLayout>
       <div className="space-y-6">
-        <div>
-          <h1 className="text-3xl font-bold">Sales Returns Report</h1>
-          <p className="text-muted-foreground">View and analyze all sales returns with filters</p>
+        <div className="flex items-center justify-between">
+          <div>
+            <h1 className="text-3xl font-bold">Sales Returns Report</h1>
+            <p className="text-muted-foreground">View and analyze all sales returns with filters</p>
+          </div>
+          <Button variant="outline" onClick={exportToCSV} disabled={filteredReturns.length === 0}>
+            <Download className="h-4 w-4 mr-2" />
+            Export CSV
+          </Button>
         </div>
 
         {/* Summary Cards */}
