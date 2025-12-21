@@ -31,6 +31,7 @@ export interface Product {
   cost_price: number;
   min_stock_level: number;
   current_stock: number;
+  units_per_pack: number; // E.g., 10 tablets per strip. BOM calculates per unit.
   manufacturing_date?: string;
   expiry_date?: string;
   description?: string;

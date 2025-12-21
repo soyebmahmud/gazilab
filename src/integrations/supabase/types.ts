@@ -218,6 +218,7 @@ export type Database = {
           selling_price: number
           sku: string
           unit: Database["public"]["Enums"]["unit_type"]
+          units_per_pack: number
           updated_at: string
         }
         Insert: {
@@ -235,6 +236,7 @@ export type Database = {
           selling_price?: number
           sku: string
           unit?: Database["public"]["Enums"]["unit_type"]
+          units_per_pack?: number
           updated_at?: string
         }
         Update: {
@@ -252,6 +254,7 @@ export type Database = {
           selling_price?: number
           sku?: string
           unit?: Database["public"]["Enums"]["unit_type"]
+          units_per_pack?: number
           updated_at?: string
         }
         Relationships: []

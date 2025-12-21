@@ -19,10 +19,17 @@ function CreateProductionDialog({ onClose }: { onClose: () => void }) {
   const createProduction = useCreateProduction();
   const [productId, setProductId] = useState('');
   const { data: activeBom } = useActiveBOM(productId);
-  const [quantity, setQuantity] = useState(0);
+  const [packsQuantity, setPacksQuantity] = useState(0); // Input in packs/strips
   const [manufacturingDate, setManufacturingDate] = useState(format(new Date(), 'yyyy-MM-dd'));
   const [expiryDate, setExpiryDate] = useState('');
   const [notes, setNotes] = useState('');
+
+  // Get selected product
+  const selectedProduct = products?.find(p => p.id === productId);
+  const unitsPerPack = selectedProduct?.units_per_pack || 1;
+  
+  // Calculate total units from packs
+  const totalUnits = packsQuantity * unitsPerPack;
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -30,7 +37,7 @@ function CreateProductionDialog({ onClose }: { onClose: () => void }) {
     await createProduction.mutateAsync({ 
       product_id: productId, 
       bom_id: activeBom.id, 
-      quantity_planned: quantity,
+      quantity_planned: totalUnits, // Always save in units
       manufacturing_date: manufacturingDate || undefined,
       expiry_date: expiryDate || undefined,
       notes: notes || undefined
@@ -38,9 +45,9 @@ function CreateProductionDialog({ onClose }: { onClose: () => void }) {
     onClose();
   };
 
-  // Calculate material requirements
+  // Calculate material requirements based on total units
   const materialRequirements = activeBom?.items?.map(item => {
-    const requiredQty = item.quantity_per_unit * (1 + item.wastage_percent / 100) * quantity;
+    const requiredQty = item.quantity_per_unit * (1 + item.wastage_percent / 100) * totalUnits;
     const available = item.raw_material?.current_stock || 0;
     const isInsufficient = available < requiredQty;
     return {
@@ -81,18 +88,25 @@ function CreateProductionDialog({ onClose }: { onClose: () => void }) {
       )}
 
       <div className="space-y-2">
-        <Label>Quantity to Produce *</Label>
+        <Label>Quantity (Packs/Strips) *</Label>
         <Input 
           type="number" 
-          value={quantity} 
-          onChange={(e) => setQuantity(parseFloat(e.target.value) || 0)} 
+          value={packsQuantity} 
+          onChange={(e) => setPacksQuantity(parseFloat(e.target.value) || 0)} 
           min="0"
           step="1"
+          placeholder={`Enter number of ${unitsPerPack > 1 ? 'strips/packs' : 'units'}`}
         />
+        {unitsPerPack > 1 && packsQuantity > 0 && (
+          <div className="flex items-center gap-2 p-2 bg-accent rounded-md text-sm">
+            <span className="font-medium">{packsQuantity} strips × {unitsPerPack} =</span>
+            <span className="text-primary font-bold">{totalUnits} tablets</span>
+          </div>
+        )}
       </div>
 
       {/* Material Requirements Preview */}
-      {activeBom && quantity > 0 && (
+      {activeBom && totalUnits > 0 && (
         <div className="space-y-2">
           <Label className="text-sm">Material Requirements</Label>
           <div className="border rounded-lg overflow-hidden">
@@ -168,8 +182,8 @@ function CreateProductionDialog({ onClose }: { onClose: () => void }) {
 
       <div className="flex justify-end gap-2 pt-4 border-t">
         <Button type="button" variant="outline" onClick={onClose}>Cancel</Button>
-        <Button type="submit" disabled={!activeBom || quantity <= 0 || hasInsufficientStock || createProduction.isPending}>
-          Create Batch
+        <Button type="submit" disabled={!activeBom || totalUnits <= 0 || hasInsufficientStock || createProduction.isPending}>
+          Create Batch ({totalUnits} units)
         </Button>
       </div>
     </form>
