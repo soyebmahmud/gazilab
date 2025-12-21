@@ -337,3 +337,133 @@ export function useProductionTrends() {
     }
   });
 }
+
+export function useWeeklySales() {
+  return useQuery({
+    queryKey: ['weekly-sales'],
+    queryFn: async () => {
+      // Get start and end of current week (Sunday to Saturday)
+      const now = new Date();
+      const startOfWeek = new Date(now);
+      startOfWeek.setDate(now.getDate() - now.getDay());
+      startOfWeek.setHours(0, 0, 0, 0);
+      
+      const endOfWeek = new Date(startOfWeek);
+      endOfWeek.setDate(startOfWeek.getDate() + 6);
+      endOfWeek.setHours(23, 59, 59, 999);
+      
+      const { data, error } = await supabase
+        .from('sales')
+        .select('sale_date, total_amount')
+        .gte('sale_date', startOfWeek.toISOString().split('T')[0])
+        .lte('sale_date', endOfWeek.toISOString().split('T')[0]);
+      
+      if (error) throw error;
+      
+      // Create array for all 7 days of the week
+      const days = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+      const weekData = days.map((day, index) => {
+        const date = new Date(startOfWeek);
+        date.setDate(startOfWeek.getDate() + index);
+        const dateStr = date.toISOString().split('T')[0];
+        
+        const dayTotal = (data || [])
+          .filter(sale => sale.sale_date === dateStr)
+          .reduce((sum, sale) => sum + Number(sale.total_amount), 0);
+        
+        return {
+          day,
+          date: date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
+          total: dayTotal
+        };
+      });
+      
+      return weekData;
+    }
+  });
+}
+
+export function useInventoryTrends() {
+  return useQuery({
+    queryKey: ['inventory-trends'],
+    queryFn: async () => {
+      // Get stock ledger entries for products
+      const { data: productLedger, error: productError } = await supabase
+        .from('stock_ledger_products')
+        .select('created_at, balance_after, product_id')
+        .order('created_at', { ascending: true });
+      
+      if (productError) throw productError;
+      
+      // Get stock ledger entries for materials
+      const { data: materialLedger, error: materialError } = await supabase
+        .from('stock_ledger_materials')
+        .select('created_at, balance_after, raw_material_id')
+        .order('created_at', { ascending: true });
+      
+      if (materialError) throw materialError;
+      
+      // Get current product and material prices for value calculation
+      const { data: products, error: prodError } = await supabase
+        .from('products')
+        .select('id, selling_price');
+      
+      if (prodError) throw prodError;
+      
+      const { data: materials, error: matError } = await supabase
+        .from('raw_materials')
+        .select('id, cost_per_unit');
+      
+      if (matError) throw matError;
+      
+      const productPrices = Object.fromEntries((products || []).map(p => [p.id, Number(p.selling_price)]));
+      const materialPrices = Object.fromEntries((materials || []).map(m => [m.id, Number(m.cost_per_unit)]));
+      
+      // Group by day and calculate latest balance for each item
+      const dailyData: Record<string, { productValue: number; materialValue: number }> = {};
+      
+      // Process product ledger
+      const productBalances: Record<string, number> = {};
+      for (const entry of productLedger || []) {
+        const date = new Date(entry.created_at);
+        const dateKey = date.toISOString().split('T')[0];
+        productBalances[entry.product_id] = entry.balance_after;
+        
+        if (!dailyData[dateKey]) {
+          dailyData[dateKey] = { productValue: 0, materialValue: 0 };
+        }
+        // Calculate total product value from all product balances
+        dailyData[dateKey].productValue = Object.entries(productBalances)
+          .reduce((sum, [id, balance]) => sum + (balance * (productPrices[id] || 0)), 0);
+      }
+      
+      // Process material ledger
+      const materialBalances: Record<string, number> = {};
+      for (const entry of materialLedger || []) {
+        const date = new Date(entry.created_at);
+        const dateKey = date.toISOString().split('T')[0];
+        materialBalances[entry.raw_material_id] = entry.balance_after;
+        
+        if (!dailyData[dateKey]) {
+          dailyData[dateKey] = { productValue: 0, materialValue: 0 };
+        }
+        // Calculate total material value from all material balances
+        dailyData[dateKey].materialValue = Object.entries(materialBalances)
+          .reduce((sum, [id, balance]) => sum + (balance * (materialPrices[id] || 0)), 0);
+      }
+      
+      // Convert to array and get last 14 days
+      const trends = Object.entries(dailyData)
+        .sort(([a], [b]) => a.localeCompare(b))
+        .slice(-14)
+        .map(([date, values]) => ({
+          date: new Date(date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
+          products: values.productValue,
+          materials: values.materialValue,
+          total: values.productValue + values.materialValue
+        }));
+      
+      return trends;
+    }
+  });
+}
