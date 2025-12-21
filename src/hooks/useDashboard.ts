@@ -268,3 +268,72 @@ export function useAlerts() {
     }
   });
 }
+
+export function useSalesTrends() {
+  return useQuery({
+    queryKey: ['sales-trends'],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('sales')
+        .select('sale_date, total_amount')
+        .order('sale_date', { ascending: true });
+      
+      if (error) throw error;
+      
+      // Group by month
+      const monthlyData: Record<string, number> = {};
+      for (const sale of data || []) {
+        const date = new Date(sale.sale_date);
+        const monthKey = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
+        monthlyData[monthKey] = (monthlyData[monthKey] || 0) + Number(sale.total_amount);
+      }
+      
+      // Convert to array and get last 6 months
+      const months = Object.entries(monthlyData)
+        .map(([month, total]) => ({
+          month: new Date(month + '-01').toLocaleDateString('en-US', { month: 'short', year: '2-digit' }),
+          total
+        }))
+        .slice(-6);
+      
+      return months;
+    }
+  });
+}
+
+export function useProductionTrends() {
+  return useQuery({
+    queryKey: ['production-trends'],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('production_batches')
+        .select('created_at, quantity_produced, status')
+        .order('created_at', { ascending: true });
+      
+      if (error) throw error;
+      
+      // Group by month
+      const monthlyData: Record<string, { produced: number; planned: number }> = {};
+      for (const batch of data || []) {
+        const date = new Date(batch.created_at);
+        const monthKey = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
+        if (!monthlyData[monthKey]) {
+          monthlyData[monthKey] = { produced: 0, planned: 0 };
+        }
+        monthlyData[monthKey].produced += batch.quantity_produced || 0;
+        monthlyData[monthKey].planned += 1;
+      }
+      
+      // Convert to array and get last 6 months
+      const months = Object.entries(monthlyData)
+        .map(([month, data]) => ({
+          month: new Date(month + '-01').toLocaleDateString('en-US', { month: 'short', year: '2-digit' }),
+          produced: data.produced,
+          batches: data.planned
+        }))
+        .slice(-6);
+      
+      return months;
+    }
+  });
+}
