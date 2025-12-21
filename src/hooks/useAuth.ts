@@ -35,17 +35,14 @@ export function useAuth() {
     return { error };
   }, []);
 
-  const signUp = useCallback(async (email: string, password: string) => {
-    const redirectUrl = `${window.location.origin}/`;
-    
-    const { error } = await supabase.auth.signUp({
-      email,
-      password,
-      options: {
-        emailRedirectTo: redirectUrl,
-      },
-    });
-    return { error };
+  // Sign up is disabled for this private ERP system
+  // Users must be pre-created by administrators in Supabase Auth
+  const signUp = useCallback(async (_email: string, _password: string) => {
+    return { 
+      error: { 
+        message: "Sign up is disabled. This is a private system. Contact your administrator for access." 
+      } as { message: string }
+    };
   }, []);
 
   const signOut = useCallback(async () => {
