@@ -9,9 +9,10 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Badge } from '@/components/ui/badge';
 import { useRawMaterials, useCreateRawMaterial, useUpdateRawMaterial, useDeleteRawMaterial, useMaterialUsage, useCanDeleteMaterial, useDeletedRawMaterials, useRestoreRawMaterial } from '@/hooks/useRawMaterials';
 import { RawMaterial, MaterialCategory, UnitType } from '@/types/database';
-import { Plus, Pencil, Trash2, Eye, AlertTriangle, RotateCcw, Archive } from 'lucide-react';
+import { Plus, Pencil, Trash2, Eye, AlertTriangle, RotateCcw, Archive, PackagePlus } from 'lucide-react';
 import { useState } from 'react';
 import { toast } from 'sonner';
+import { AddStockDialog } from '@/components/AddStockDialog';
 
 const CATEGORIES: MaterialCategory[] = ['herbs', 'chemicals', 'packaging'];
 const UNITS: UnitType[] = ['kg', 'g', 'l', 'ml', 'pcs', 'box', 'pack'];
@@ -159,6 +160,7 @@ export default function RawMaterialsPage() {
   const [usageDialogOpen, setUsageDialogOpen] = useState(false);
   const [selectedMaterial, setSelectedMaterial] = useState<RawMaterial | null>(null);
   const [showDeleted, setShowDeleted] = useState(false);
+  const [addStockMaterial, setAddStockMaterial] = useState<RawMaterial | null>(null);
 
   const handleEdit = (material: RawMaterial) => {
     setEditMaterial(material);
@@ -251,6 +253,15 @@ export default function RawMaterialsPage() {
                             </Button>
                           ) : (
                             <>
+                              <Button 
+                                size="sm" 
+                                variant={material.current_stock <= 0 ? "default" : "outline"}
+                                onClick={() => setAddStockMaterial(material)}
+                                className="mr-1"
+                              >
+                                <PackagePlus className="h-4 w-4 mr-1" />
+                                {material.current_stock <= 0 ? 'Add Stock' : 'Receive'}
+                              </Button>
                               <Button size="icon" variant="ghost" onClick={() => handleViewUsage(material)}>
                                 <Eye className="h-4 w-4" />
                               </Button>
@@ -275,6 +286,12 @@ export default function RawMaterialsPage() {
         <Dialog open={usageDialogOpen} onOpenChange={setUsageDialogOpen}>
           {selectedMaterial && <MaterialUsageDialog materialId={selectedMaterial.id} materialName={selectedMaterial.name} />}
         </Dialog>
+
+        <AddStockDialog 
+          open={!!addStockMaterial} 
+          onOpenChange={(open) => !open && setAddStockMaterial(null)} 
+          material={addStockMaterial} 
+        />
       </div>
     </MainLayout>
   );
