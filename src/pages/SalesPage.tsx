@@ -7,10 +7,12 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
-import { useSales, useCreateSale, useProductBatches, useUpdatePaymentStatus } from '@/hooks/useSales';
+import { Separator } from '@/components/ui/separator';
+import { useSales, useCreateSale, useProductBatches } from '@/hooks/useSales';
+import { useSalePayments, useAddPayment, useDeletePayment, PAYMENT_METHODS } from '@/hooks/useSalePayments';
 import { useProducts } from '@/hooks/useProducts';
 import { useCustomers } from '@/hooks/useCustomers';
-import { Plus, X, FileText, Eye, CreditCard, Package, Printer } from 'lucide-react';
+import { Plus, X, FileText, CreditCard, Package, Printer, Trash2, Eye } from 'lucide-react';
 import { useState, useRef } from 'react';
 import { format } from 'date-fns';
 import { InvoicePrint } from '@/components/InvoicePrint';
@@ -291,8 +293,17 @@ function CreateSaleDialog({ onClose }: { onClose: () => void }) {
 function SaleDetailsDialog({ saleId, onClose }: { saleId: string; onClose: () => void }) {
   const { data: sales } = useSales();
   const sale = sales?.find(s => s.id === saleId);
-  const updatePayment = useUpdatePaymentStatus();
+  const { data: payments } = useSalePayments(saleId);
+  const addPayment = useAddPayment();
+  const deletePayment = useDeletePayment();
   const printRef = useRef<HTMLDivElement>(null);
+
+  // Payment form state
+  const [showPaymentForm, setShowPaymentForm] = useState(false);
+  const [paymentAmount, setPaymentAmount] = useState(0);
+  const [paymentMethod, setPaymentMethod] = useState('cash');
+  const [paymentDate, setPaymentDate] = useState(format(new Date(), 'yyyy-MM-dd'));
+  const [paymentNote, setPaymentNote] = useState('');
 
   const handlePrint = useReactToPrint({
     contentRef: printRef,
@@ -301,12 +312,37 @@ function SaleDetailsDialog({ saleId, onClose }: { saleId: string; onClose: () =>
 
   if (!sale) return null;
 
-  const handleMarkPaid = () => {
-    updatePayment.mutate({ saleId, status: 'paid' });
+  const paidAmount = sale.paid_amount || 0;
+  const dueAmount = sale.total_amount - paidAmount;
+
+  const handleAddPayment = async () => {
+    if (paymentAmount <= 0) return;
+    
+    await addPayment.mutateAsync({
+      sale_id: saleId,
+      amount: paymentAmount,
+      payment_method: paymentMethod,
+      payment_date: paymentDate,
+      reference_note: paymentNote || undefined
+    });
+    
+    setShowPaymentForm(false);
+    setPaymentAmount(0);
+    setPaymentMethod('cash');
+    setPaymentNote('');
+  };
+
+  const getStatusBadge = () => {
+    if (sale.payment_status === 'paid') {
+      return <Badge className="bg-green-500 text-white">🟢 Paid</Badge>;
+    } else if (sale.payment_status === 'partial') {
+      return <Badge className="bg-yellow-500 text-white">🟡 Partial Paid</Badge>;
+    }
+    return <Badge className="bg-red-500 text-white">🔴 Unpaid</Badge>;
   };
 
   return (
-    <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+    <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
       <DialogHeader>
         <DialogTitle className="flex items-center gap-2">
           <FileText className="h-5 w-5" />
@@ -316,7 +352,7 @@ function SaleDetailsDialog({ saleId, onClose }: { saleId: string; onClose: () =>
 
       <div className="space-y-4">
         {/* Header Info */}
-        <div className="grid grid-cols-3 gap-4 p-4 bg-accent rounded-lg">
+        <div className="grid grid-cols-4 gap-4 p-4 bg-accent rounded-lg">
           <div>
             <p className="text-sm text-muted-foreground">Customer</p>
             <p className="font-medium">{sale.customer?.name || 'Walk-in'}</p>
@@ -327,12 +363,13 @@ function SaleDetailsDialog({ saleId, onClose }: { saleId: string; onClose: () =>
           </div>
           <div>
             <p className="text-sm text-muted-foreground">Status</p>
-            <Badge className={
-              sale.payment_status === 'paid' ? 'bg-primary' :
-              sale.payment_status === 'partial' ? 'bg-yellow-500' : 'bg-secondary'
-            }>
-              {sale.payment_status}
-            </Badge>
+            {getStatusBadge()}
+          </div>
+          <div>
+            <p className="text-sm text-muted-foreground">Due Amount</p>
+            <p className={`font-bold ${dueAmount > 0 ? 'text-destructive' : 'text-green-600'}`}>
+              ৳{dueAmount.toFixed(2)}
+            </p>
           </div>
         </div>
 
@@ -384,6 +421,119 @@ function SaleDetailsDialog({ saleId, onClose }: { saleId: string; onClose: () =>
             <span>Total</span>
             <span>৳{sale.total_amount}</span>
           </div>
+          <div className="flex justify-between text-sm text-green-600">
+            <span>Paid</span>
+            <span>৳{paidAmount.toFixed(2)}</span>
+          </div>
+          <div className={`flex justify-between font-bold ${dueAmount > 0 ? 'text-destructive' : 'text-green-600'}`}>
+            <span>Due</span>
+            <span>৳{dueAmount.toFixed(2)}</span>
+          </div>
+        </div>
+
+        <Separator />
+
+        {/* Payment History */}
+        <div className="space-y-3">
+          <div className="flex items-center justify-between">
+            <h4 className="font-medium">Payment History</h4>
+            {dueAmount > 0 && (
+              <Button size="sm" onClick={() => {
+                setPaymentAmount(dueAmount);
+                setShowPaymentForm(true);
+              }}>
+                <Plus className="h-3 w-3 mr-1" /> Add Payment
+              </Button>
+            )}
+          </div>
+
+          {showPaymentForm && (
+            <div className="p-4 border rounded-lg space-y-3 bg-accent/50">
+              <div className="grid grid-cols-4 gap-3">
+                <div className="space-y-1">
+                  <Label className="text-xs">Amount</Label>
+                  <Input
+                    type="number"
+                    step="0.01"
+                    max={dueAmount}
+                    value={paymentAmount}
+                    onChange={(e) => setPaymentAmount(parseFloat(e.target.value) || 0)}
+                  />
+                </div>
+                <div className="space-y-1">
+                  <Label className="text-xs">Method</Label>
+                  <Select value={paymentMethod} onValueChange={setPaymentMethod}>
+                    <SelectTrigger><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      {PAYMENT_METHODS.map(m => (
+                        <SelectItem key={m.value} value={m.value}>{m.label}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-1">
+                  <Label className="text-xs">Date</Label>
+                  <Input
+                    type="date"
+                    value={paymentDate}
+                    onChange={(e) => setPaymentDate(e.target.value)}
+                  />
+                </div>
+                <div className="space-y-1">
+                  <Label className="text-xs">Reference</Label>
+                  <Input
+                    placeholder="Optional"
+                    value={paymentNote}
+                    onChange={(e) => setPaymentNote(e.target.value)}
+                  />
+                </div>
+              </div>
+              <div className="flex justify-end gap-2">
+                <Button size="sm" variant="outline" onClick={() => setShowPaymentForm(false)}>
+                  Cancel
+                </Button>
+                <Button size="sm" onClick={handleAddPayment} disabled={addPayment.isPending || paymentAmount <= 0}>
+                  Record Payment
+                </Button>
+              </div>
+            </div>
+          )}
+
+          {payments && payments.length > 0 ? (
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Date</TableHead>
+                  <TableHead>Method</TableHead>
+                  <TableHead>Reference</TableHead>
+                  <TableHead className="text-right">Amount</TableHead>
+                  <TableHead></TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {payments.map((payment) => (
+                  <TableRow key={payment.id}>
+                    <TableCell>{format(new Date(payment.payment_date), 'dd MMM yyyy')}</TableCell>
+                    <TableCell className="capitalize">{payment.payment_method}</TableCell>
+                    <TableCell className="text-muted-foreground">{payment.reference_note || '-'}</TableCell>
+                    <TableCell className="text-right font-medium text-green-600">৳{payment.amount}</TableCell>
+                    <TableCell className="text-right">
+                      <Button
+                        size="icon"
+                        variant="ghost"
+                        onClick={() => deletePayment.mutate({ paymentId: payment.id, saleId })}
+                        disabled={deletePayment.isPending}
+                      >
+                        <Trash2 className="h-4 w-4 text-destructive" />
+                      </Button>
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          ) : (
+            <p className="text-sm text-muted-foreground text-center py-4">No payments recorded yet</p>
+          )}
         </div>
 
         <div className="flex justify-between pt-4 border-t">
@@ -391,12 +541,6 @@ function SaleDetailsDialog({ saleId, onClose }: { saleId: string; onClose: () =>
             <Printer className="h-4 w-4 mr-2" />
             Print Invoice
           </Button>
-          {sale.payment_status !== 'paid' && (
-            <Button onClick={handleMarkPaid} disabled={updatePayment.isPending}>
-              <CreditCard className="h-4 w-4 mr-2" />
-              Mark as Paid
-            </Button>
-          )}
         </div>
       </div>
 
@@ -408,10 +552,13 @@ function SaleDetailsDialog({ saleId, onClose }: { saleId: string; onClose: () =>
   );
 }
 
-const paymentStatusColors: Record<string, string> = {
-  pending: 'bg-secondary',
-  partial: 'bg-yellow-500',
-  paid: 'bg-primary'
+const getPaymentStatusBadge = (status: string, dueAmount: number) => {
+  if (status === 'paid') {
+    return <Badge className="bg-green-500 text-white">🟢 Paid</Badge>;
+  } else if (status === 'partial') {
+    return <Badge className="bg-yellow-500 text-white">🟡 Partial</Badge>;
+  }
+  return <Badge className="bg-red-500 text-white">🔴 Unpaid</Badge>;
 };
 
 export default function SalesPage() {
@@ -454,32 +601,38 @@ export default function SalesPage() {
                     <TableHead>Invoice #</TableHead>
                     <TableHead>Customer</TableHead>
                     <TableHead>Date</TableHead>
-                    <TableHead className="text-right">Items</TableHead>
                     <TableHead className="text-right">Total</TableHead>
+                    <TableHead className="text-right">Paid</TableHead>
+                    <TableHead className="text-right">Due</TableHead>
                     <TableHead>Status</TableHead>
                     <TableHead className="text-right">Actions</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {sales?.map((sale) => (
-                    <TableRow key={sale.id}>
-                      <TableCell className="font-mono text-sm">{sale.invoice_number}</TableCell>
-                      <TableCell className="font-medium">{sale.customer?.name || 'Walk-in'}</TableCell>
-                      <TableCell>{format(new Date(sale.sale_date), 'dd MMM yyyy')}</TableCell>
-                      <TableCell className="text-right">{sale.items?.length || 0}</TableCell>
-                      <TableCell className="text-right font-medium">৳{sale.total_amount}</TableCell>
-                      <TableCell>
-                        <Badge className={paymentStatusColors[sale.payment_status]}>
-                          {sale.payment_status}
-                        </Badge>
-                      </TableCell>
-                      <TableCell className="text-right">
-                        <Button size="sm" variant="ghost" onClick={() => setViewSaleId(sale.id)}>
-                          <Eye className="h-4 w-4 mr-1" /> View
-                        </Button>
-                      </TableCell>
-                    </TableRow>
-                  ))}
+                  {sales?.map((sale) => {
+                    const paidAmount = sale.paid_amount || 0;
+                    const dueAmount = sale.total_amount - paidAmount;
+                    return (
+                      <TableRow key={sale.id}>
+                        <TableCell className="font-mono text-sm">{sale.invoice_number}</TableCell>
+                        <TableCell className="font-medium">{sale.customer?.name || 'Walk-in'}</TableCell>
+                        <TableCell>{format(new Date(sale.sale_date), 'dd MMM yyyy')}</TableCell>
+                        <TableCell className="text-right font-medium">৳{sale.total_amount}</TableCell>
+                        <TableCell className="text-right text-green-600">৳{paidAmount.toFixed(2)}</TableCell>
+                        <TableCell className={`text-right font-medium ${dueAmount > 0 ? 'text-destructive' : 'text-green-600'}`}>
+                          ৳{dueAmount.toFixed(2)}
+                        </TableCell>
+                        <TableCell>
+                          {getPaymentStatusBadge(sale.payment_status, dueAmount)}
+                        </TableCell>
+                        <TableCell className="text-right">
+                          <Button size="sm" variant="ghost" onClick={() => setViewSaleId(sale.id)}>
+                            <Eye className="h-4 w-4 mr-1" /> View
+                          </Button>
+                        </TableCell>
+                      </TableRow>
+                    );
+                  })}
                 </TableBody>
               </Table>
             )}
