@@ -14,6 +14,39 @@ export type Database = {
   }
   public: {
     Tables: {
+      allowed_emails: {
+        Row: {
+          created_at: string
+          department: string | null
+          email: string
+          id: string
+          is_active: boolean
+          name: string | null
+          role: Database["public"]["Enums"]["app_role"]
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          department?: string | null
+          email: string
+          id?: string
+          is_active?: boolean
+          name?: string | null
+          role?: Database["public"]["Enums"]["app_role"]
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          department?: string | null
+          email?: string
+          id?: string
+          is_active?: boolean
+          name?: string | null
+          role?: Database["public"]["Enums"]["app_role"]
+          updated_at?: string
+        }
+        Relationships: []
+      }
       bom: {
         Row: {
           created_at: string
@@ -1085,6 +1118,10 @@ export type Database = {
       }
       generate_invoice_number: { Args: never; Returns: string }
       generate_po_number: { Args: never; Returns: string }
+      get_allowed_role: {
+        Args: { check_email: string }
+        Returns: Database["public"]["Enums"]["app_role"]
+      }
       get_available_material_stock: {
         Args: { p_material_id: string }
         Returns: number
@@ -1177,6 +1214,7 @@ export type Database = {
         Returns: boolean
       }
       is_authenticated: { Args: never; Returns: boolean }
+      is_email_allowed: { Args: { check_email: string }; Returns: boolean }
       process_sale_return: {
         Args: {
           p_notes?: string
