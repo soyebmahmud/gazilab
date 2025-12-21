@@ -142,6 +142,63 @@ export type Database = {
         }
         Relationships: []
       }
+      damaged_goods: {
+        Row: {
+          created_at: string
+          damage_type: string
+          id: string
+          notes: string | null
+          product_id: string
+          production_batch_id: string | null
+          quantity: number
+          source_reference_id: string | null
+          source_reference_type: string | null
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          damage_type: string
+          id?: string
+          notes?: string | null
+          product_id: string
+          production_batch_id?: string | null
+          quantity: number
+          source_reference_id?: string | null
+          source_reference_type?: string | null
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          damage_type?: string
+          id?: string
+          notes?: string | null
+          product_id?: string
+          production_batch_id?: string | null
+          quantity?: number
+          source_reference_id?: string | null
+          source_reference_type?: string | null
+          status?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "damaged_goods_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "products"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "damaged_goods_production_batch_id_fkey"
+            columns: ["production_batch_id"]
+            isOneToOne: false
+            referencedRelation: "production_batches"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       production_batches: {
         Row: {
           batch_number: string
@@ -636,6 +693,86 @@ export type Database = {
           },
         ]
       }
+      sale_returns: {
+        Row: {
+          created_at: string
+          id: string
+          notes: string | null
+          original_invoice_number: string
+          product_id: string
+          production_batch_id: string | null
+          quantity_returned: number
+          reason: string
+          restore_to_stock: boolean
+          return_date: string
+          return_status: string
+          sale_id: string
+          sale_item_id: string | null
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          notes?: string | null
+          original_invoice_number: string
+          product_id: string
+          production_batch_id?: string | null
+          quantity_returned: number
+          reason: string
+          restore_to_stock?: boolean
+          return_date?: string
+          return_status?: string
+          sale_id: string
+          sale_item_id?: string | null
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          notes?: string | null
+          original_invoice_number?: string
+          product_id?: string
+          production_batch_id?: string | null
+          quantity_returned?: number
+          reason?: string
+          restore_to_stock?: boolean
+          return_date?: string
+          return_status?: string
+          sale_id?: string
+          sale_item_id?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "sale_returns_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "products"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "sale_returns_production_batch_id_fkey"
+            columns: ["production_batch_id"]
+            isOneToOne: false
+            referencedRelation: "production_batches"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "sale_returns_sale_id_fkey"
+            columns: ["sale_id"]
+            isOneToOne: false
+            referencedRelation: "sales"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "sale_returns_sale_item_id_fkey"
+            columns: ["sale_item_id"]
+            isOneToOne: false
+            referencedRelation: "sale_items"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       sales: {
         Row: {
           created_at: string
@@ -921,6 +1058,10 @@ export type Database = {
           unit: string
         }[]
       }
+      destroy_damaged_goods: {
+        Args: { p_damaged_goods_id: string; p_notes?: string }
+        Returns: undefined
+      }
       generate_invoice_number: { Args: never; Returns: string }
       generate_po_number: { Args: never; Returns: string }
       get_available_material_stock: {
@@ -1007,6 +1148,31 @@ export type Database = {
           unit: string
         }[]
       }
+      process_sale_return: {
+        Args: {
+          p_notes?: string
+          p_quantity: number
+          p_reason: string
+          p_restore_to_stock?: boolean
+          p_sale_id: string
+          p_sale_item_id: string
+        }
+        Returns: string
+      }
+      record_product_damage: {
+        Args: {
+          p_damage_type: string
+          p_notes?: string
+          p_product_id: string
+          p_production_batch_id: string
+          p_quantity: number
+        }
+        Returns: string
+      }
+      restore_damaged_goods: {
+        Args: { p_damaged_goods_id: string }
+        Returns: undefined
+      }
     }
     Enums: {
       material_category: "herbs" | "chemicals" | "packaging"
@@ -1027,6 +1193,9 @@ export type Database = {
         | "sale"
         | "purchase"
         | "wastage"
+        | "sale_return"
+        | "damage_out"
+        | "expired_out"
       unit_type: "kg" | "g" | "l" | "ml" | "pcs" | "box" | "pack"
     }
     CompositeTypes: {
@@ -1174,6 +1343,9 @@ export const Constants = {
         "sale",
         "purchase",
         "wastage",
+        "sale_return",
+        "damage_out",
+        "expired_out",
       ],
       unit_type: ["kg", "g", "l", "ml", "pcs", "box", "pack"],
     },
