@@ -11,9 +11,11 @@ import { Badge } from '@/components/ui/badge';
 import { useProducts, useCreateProduct, useUpdateProduct, useDeleteProduct } from '@/hooks/useProducts';
 import { useRawMaterials } from '@/hooks/useRawMaterials';
 import { useActiveBOM } from '@/hooks/useBOM';
+import { useProductPackagingConfigs } from '@/hooks/usePackagingConfigs';
 import { Product, ProductCategory, UnitType } from '@/types/database';
-import { Plus, Pencil, Trash2, X, ClipboardList, Search } from 'lucide-react';
+import { Plus, Pencil, Trash2, X, ClipboardList, Search, Package } from 'lucide-react';
 import { useState, useMemo } from 'react';
+import { PackagingConfigDialog } from '@/components/PackagingConfigDialog';
 
 const CATEGORIES: ProductCategory[] = ['capsules', 'tablets', 'powder', 'liquid', 'cream', 'other'];
 const UNITS: UnitType[] = ['kg', 'g', 'l', 'ml', 'pcs', 'box', 'pack'];
@@ -263,6 +265,7 @@ export default function ProductsPage() {
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editProduct, setEditProduct] = useState<Product | undefined>();
   const [bomDialogProduct, setBomDialogProduct] = useState<{ id: string; name: string } | null>(null);
+  const [packagingDialogProduct, setPackagingDialogProduct] = useState<{ id: string; name: string } | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
 
   // Filter products based on search
@@ -370,6 +373,9 @@ export default function ProductsPage() {
                       </TableCell>
                       <TableCell className="text-right">
                         <div className="flex justify-end gap-1">
+                          <Button size="icon" variant="ghost" onClick={() => setPackagingDialogProduct({ id: product.id, name: product.name })} title="Packaging Config">
+                            <Package className="h-4 w-4" />
+                          </Button>
                           <Button size="icon" variant="ghost" onClick={() => setBomDialogProduct({ id: product.id, name: product.name })} title="View BOM">
                             <ClipboardList className="h-4 w-4" />
                           </Button>
@@ -392,6 +398,18 @@ export default function ProductsPage() {
         {/* BOM Dialog */}
         <Dialog open={!!bomDialogProduct} onOpenChange={(open) => !open && setBomDialogProduct(null)}>
           {bomDialogProduct && <ProductBOMDialog productId={bomDialogProduct.id} productName={bomDialogProduct.name} />}
+        </Dialog>
+
+        {/* Packaging Config Dialog */}
+        <Dialog open={!!packagingDialogProduct} onOpenChange={(open) => !open && setPackagingDialogProduct(null)}>
+          {packagingDialogProduct && (
+            <PackagingConfigDialog 
+              open={!!packagingDialogProduct}
+              onOpenChange={(open) => !open && setPackagingDialogProduct(null)}
+              productId={packagingDialogProduct.id}
+              productName={packagingDialogProduct.name}
+            />
+          )}
         </Dialog>
       </div>
     </MainLayout>
