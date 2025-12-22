@@ -79,31 +79,59 @@ export function useCreateProduction() {
   
   return useMutation({
     mutationFn: async (data: CreateProductionData) => {
-      // Get BOM items for validation
-      const { data: bomData, error: bomError } = await supabase
-        .from('bom')
-        .select(`
-          items:bom_items(
-            *,
-            raw_material:raw_materials(*)
-          )
-        `)
-        .eq('id', data.bom_id)
-        .single();
-      
-      if (bomError) throw bomError;
-      
-      const items = bomData.items as BOMItem[];
-      
-      // Validate stock availability
-      for (const item of items) {
-        const requiredQty = item.quantity_per_unit * (1 + item.wastage_percent / 100) * data.quantity_planned;
-        if (item.raw_material && item.raw_material.current_stock < requiredQty) {
-          throw new Error(`Insufficient stock for ${item.raw_material.name}. Required: ${requiredQty.toFixed(3)}, Available: ${item.raw_material.current_stock}`);
+      // Use hierarchical BOM to validate stock if packaging config is provided
+      if (data.packaging_config_id) {
+        const { data: hierarchicalBom, error: bomError } = await supabase
+          .rpc('get_hierarchical_bom', {
+            p_product_id: data.product_id,
+            p_packaging_config_id: data.packaging_config_id,
+            p_production_quantity: data.quantity_planned
+          });
+        
+        if (bomError) throw bomError;
+        
+        // Validate stock availability for each material
+        const insufficientMaterials: string[] = [];
+        for (const item of hierarchicalBom || []) {
+          const { data: availableStock } = await supabase
+            .rpc('get_available_material_stock', { p_material_id: item.raw_material_id });
+          
+          if ((availableStock || 0) < item.calculated_quantity) {
+            insufficientMaterials.push(
+              `${item.material_name}: Required ${item.calculated_quantity.toFixed(2)} ${item.material_unit}, Available ${(availableStock || 0).toFixed(2)} ${item.material_unit}`
+            );
+          }
+        }
+        
+        if (insufficientMaterials.length > 0) {
+          throw new Error(`Insufficient stock:\n${insufficientMaterials.join('\n')}`);
+        }
+      } else {
+        // Fallback to basic BOM validation
+        const { data: bomData, error: bomError } = await supabase
+          .from('bom')
+          .select(`
+            items:bom_items(
+              *,
+              raw_material:raw_materials(*)
+            )
+          `)
+          .eq('id', data.bom_id)
+          .single();
+        
+        if (bomError) throw bomError;
+        
+        const items = bomData.items as BOMItem[];
+        
+        for (const item of items) {
+          const requiredQty = item.quantity_per_unit * (1 + item.wastage_percent / 100) * data.quantity_planned;
+          if (item.raw_material && item.raw_material.current_stock < requiredQty) {
+            throw new Error(`Insufficient stock for ${item.raw_material.name}. Required: ${requiredQty.toFixed(3)}, Available: ${item.raw_material.current_stock}`);
+          }
         }
       }
       
-      // Create production batch
+      // Create production batch with packaging config
       const { data: batch, error: batchError } = await supabase
         .from('production_batches')
         .insert({
@@ -111,6 +139,7 @@ export function useCreateProduction() {
           product_id: data.product_id,
           bom_id: data.bom_id,
           quantity_planned: data.quantity_planned,
+          packaging_config_id: data.packaging_config_id,
           manufacturing_date: data.manufacturing_date,
           expiry_date: data.expiry_date,
           notes: data.notes,
