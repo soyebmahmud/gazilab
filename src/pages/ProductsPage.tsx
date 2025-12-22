@@ -1,5 +1,5 @@
 import { MainLayout } from '@/components/layout/MainLayout';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -10,9 +10,9 @@ import { Badge } from '@/components/ui/badge';
 import { useProducts, useCreateProduct, useUpdateProduct, useDeleteProduct } from '@/hooks/useProducts';
 import { useRawMaterials } from '@/hooks/useRawMaterials';
 import { useActiveBOM } from '@/hooks/useBOM';
-import { Product, ProductCategory, UnitType, BOMItem } from '@/types/database';
-import { Plus, Pencil, Trash2, X, Eye, ClipboardList } from 'lucide-react';
-import { useState } from 'react';
+import { Product, ProductCategory, UnitType } from '@/types/database';
+import { Plus, Pencil, Trash2, X, ClipboardList, Search } from 'lucide-react';
+import { useState, useMemo } from 'react';
 
 const CATEGORIES: ProductCategory[] = ['capsules', 'tablets', 'powder', 'liquid', 'cream', 'other'];
 const UNITS: UnitType[] = ['kg', 'g', 'l', 'ml', 'pcs', 'box', 'pack'];
@@ -262,6 +262,19 @@ export default function ProductsPage() {
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editProduct, setEditProduct] = useState<Product | undefined>();
   const [bomDialogProduct, setBomDialogProduct] = useState<{ id: string; name: string } | null>(null);
+  const [searchQuery, setSearchQuery] = useState('');
+
+  // Filter products based on search
+  const filteredProducts = useMemo(() => {
+    if (!products) return [];
+    if (!searchQuery.trim()) return products;
+    const search = searchQuery.toLowerCase();
+    return products.filter(p => 
+      p.name.toLowerCase().includes(search) || 
+      p.sku.toLowerCase().includes(search) ||
+      p.category.toLowerCase().includes(search)
+    );
+  }, [products, searchQuery]);
 
   return (
     <MainLayout>
@@ -284,13 +297,34 @@ export default function ProductsPage() {
           </Dialog>
         </div>
 
+        {/* Search */}
+        <div className="relative max-w-md">
+          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+          <Input
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            placeholder="Search by name, SKU, or category..."
+            className="pl-9"
+          />
+          {searchQuery && (
+            <Button
+              variant="ghost"
+              size="sm"
+              className="absolute right-1 top-1/2 transform -translate-y-1/2 h-7 w-7 p-0"
+              onClick={() => setSearchQuery('')}
+            >
+              <X className="h-4 w-4" />
+            </Button>
+          )}
+        </div>
+
         <Card>
           <CardContent className="p-0">
             {isLoading ? (
               <div className="p-8 text-center">Loading...</div>
-            ) : products?.length === 0 ? (
+            ) : filteredProducts.length === 0 ? (
               <div className="p-8 text-center text-muted-foreground">
-                No products yet. Add one to get started.
+                {searchQuery ? 'No products match your search.' : 'No products yet. Add one to get started.'}
               </div>
             ) : (
               <Table>
@@ -308,7 +342,7 @@ export default function ProductsPage() {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {products?.map((product) => (
+                  {filteredProducts.map((product) => (
                     <TableRow key={product.id}>
                       <TableCell className="font-medium">{product.name}</TableCell>
                       <TableCell className="text-muted-foreground">{product.sku}</TableCell>
