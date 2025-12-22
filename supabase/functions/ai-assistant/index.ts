@@ -22,42 +22,175 @@ serve(async (req) => {
     const supabase = createClient(supabaseUrl, supabaseKey);
 
     const { type, prompt, context } = await req.json();
-    console.log("AI Assistant request:", { type, prompt: prompt?.substring(0, 100) });
+    console.log("Gazi Inventory Assistant request:", { type, prompt: prompt?.substring(0, 100) });
 
     let systemPrompt = "";
     let enrichedPrompt = prompt;
 
-    // Fetch relevant data based on request type
+    // Fetch comprehensive data for chatbot
     if (type === "chatbot") {
-      // Fetch inventory data for context
-      const { data: stockSummary } = await supabase.rpc("get_stock_summary");
-      const { data: expiryAlerts } = await supabase.rpc("get_expiry_alerts", { p_days: 90 });
-      const { data: recentSales } = await supabase
-        .from("sales")
-        .select("*, sale_items(*, products(name))")
-        .order("sale_date", { ascending: false })
-        .limit(10);
-      const { data: productionBatches } = await supabase
-        .from("production_batches")
-        .select("*, products(name)")
-        .order("created_at", { ascending: false })
-        .limit(10);
+      // Fetch ALL relevant inventory data for comprehensive answers
+      const [
+        stockSummaryResult,
+        expiryAlertsResult,
+        recentSalesResult,
+        productionBatchesResult,
+        rawMaterialsResult,
+        productsResult,
+        bomResult,
+        saleReturnsResult
+      ] = await Promise.all([
+        supabase.rpc("get_stock_summary"),
+        supabase.rpc("get_expiry_alerts", { p_days: 90 }),
+        supabase.from("sales").select("*, sale_items(*, products(name))").order("sale_date", { ascending: false }).limit(50),
+        supabase.from("production_batches").select("*, products(name), bom(version, estimated_cost)").order("created_at", { ascending: false }).limit(50),
+        supabase.from("raw_materials").select("*").eq("is_active", true).order("name"),
+        supabase.from("products").select("*").eq("is_active", true).order("name"),
+        supabase.from("bom").select("*, products(name), items:bom_items(*, raw_material:raw_materials(name, current_stock, unit))").eq("is_active", true),
+        supabase.from("sale_returns").select("*, products(name), sales(invoice_number)").order("created_at", { ascending: false }).limit(20)
+      ]);
 
-      systemPrompt = `You are an intelligent inventory management assistant for Gazi Laboratories ERP system. You help users understand their stock levels, production batches, sales data, and inventory status.
+      const stockSummary = stockSummaryResult.data || [];
+      const expiryAlerts = expiryAlertsResult.data || [];
+      const recentSales = recentSalesResult.data || [];
+      const productionBatches = productionBatchesResult.data || [];
+      const rawMaterials = rawMaterialsResult.data || [];
+      const products = productsResult.data || [];
+      const boms = bomResult.data || [];
+      const saleReturns = saleReturnsResult.data || [];
 
-Current Inventory Summary:
-${JSON.stringify(stockSummary?.slice(0, 20) || [], null, 2)}
+      // Calculate production feasibility for each product with active BOM
+      const productionFeasibility = boms.map(bom => {
+        const items = bom.items || [];
+        const canProduce = items.every((item: any) => {
+          const requiredPerUnit = item.quantity_per_unit * (1 + (item.wastage_percent || 0) / 100);
+          return (item.raw_material?.current_stock || 0) >= requiredPerUnit;
+        });
+        
+        const blockingMaterials = items.filter((item: any) => {
+          const requiredPerUnit = item.quantity_per_unit * (1 + (item.wastage_percent || 0) / 100);
+          return (item.raw_material?.current_stock || 0) < requiredPerUnit;
+        }).map((item: any) => ({
+          name: item.raw_material?.name,
+          available: item.raw_material?.current_stock,
+          required: item.quantity_per_unit * (1 + (item.wastage_percent || 0) / 100),
+          unit: item.raw_material?.unit
+        }));
 
-Expiry Alerts (items expiring within 90 days):
-${JSON.stringify(expiryAlerts?.slice(0, 10) || [], null, 2)}
+        // Calculate max producible quantity
+        let maxQuantity = Infinity;
+        items.forEach((item: any) => {
+          const requiredPerUnit = item.quantity_per_unit * (1 + (item.wastage_percent || 0) / 100);
+          const available = item.raw_material?.current_stock || 0;
+          const canMake = requiredPerUnit > 0 ? Math.floor(available / requiredPerUnit) : 0;
+          maxQuantity = Math.min(maxQuantity, canMake);
+        });
 
-Recent Sales:
-${JSON.stringify(recentSales?.slice(0, 5) || [], null, 2)}
+        return {
+          productName: bom.products?.name,
+          bomVersion: bom.version,
+          canProduce,
+          maxProducibleQuantity: maxQuantity === Infinity ? 0 : maxQuantity,
+          blockingMaterials
+        };
+      });
 
-Recent Production Batches:
-${JSON.stringify(productionBatches?.slice(0, 5) || [], null, 2)}
+      systemPrompt = `You are "Gazi Inventory Assistant" - an intelligent inventory management assistant for Gazi Laboratories ERP system. You have FULL ACCESS to all inventory data and can answer detailed questions about:
 
-Provide helpful, accurate answers based on this data. If you don't have specific data, say so. Format responses clearly with bullet points or tables when appropriate. Keep responses concise but informative.`;
+- Raw Materials (stock levels, usage in BOMs)
+- Products (finished goods, stock status)
+- Bill of Materials (BOMs - recipes for products)
+- Production Batches (manufacturing status)
+- Sales and Returns
+- Expiry alerts
+
+CURRENT DATA SNAPSHOT:
+
+=== RAW MATERIALS (${rawMaterials.length} items) ===
+${JSON.stringify(rawMaterials.map(m => ({
+  name: m.name,
+  sku: m.sku,
+  category: m.category,
+  currentStock: m.current_stock,
+  unit: m.unit,
+  minStockLevel: m.min_stock_level,
+  status: m.current_stock <= 0 ? 'OUT_OF_STOCK' : m.current_stock <= m.min_stock_level ? 'LOW_STOCK' : 'OK'
+})), null, 2)}
+
+=== PRODUCTS (${products.length} items) ===
+${JSON.stringify(products.map(p => ({
+  name: p.name,
+  sku: p.sku,
+  category: p.category,
+  currentStock: p.current_stock,
+  unit: p.unit,
+  minStockLevel: p.min_stock_level,
+  sellingPrice: p.selling_price,
+  unitsPerPack: p.units_per_pack,
+  status: p.current_stock <= 0 ? 'OUT_OF_STOCK' : p.current_stock <= p.min_stock_level ? 'LOW_STOCK' : 'OK'
+})), null, 2)}
+
+=== BILL OF MATERIALS (Active BOMs) ===
+${JSON.stringify(boms.map(b => ({
+  productName: b.products?.name,
+  version: b.version,
+  estimatedCost: b.estimated_cost,
+  materials: b.items?.map((i: any) => ({
+    material: i.raw_material?.name,
+    quantityPerUnit: i.quantity_per_unit,
+    wastagePercent: i.wastage_percent,
+    availableStock: i.raw_material?.current_stock,
+    unit: i.raw_material?.unit
+  }))
+})), null, 2)}
+
+=== PRODUCTION FEASIBILITY ANALYSIS ===
+${JSON.stringify(productionFeasibility, null, 2)}
+
+=== PRODUCTION BATCHES (Recent ${productionBatches.length}) ===
+${JSON.stringify(productionBatches.map(b => ({
+  batchNumber: b.batch_number,
+  product: b.products?.name,
+  status: b.status,
+  plannedQty: b.quantity_planned,
+  producedQty: b.quantity_produced,
+  manufacturingDate: b.manufacturing_date,
+  expiryDate: b.expiry_date
+})), null, 2)}
+
+=== EXPIRY ALERTS (${expiryAlerts.length} items expiring within 90 days) ===
+${JSON.stringify(expiryAlerts, null, 2)}
+
+=== STOCK SUMMARY ===
+${JSON.stringify(stockSummary, null, 2)}
+
+=== RECENT SALES (${recentSales.length}) ===
+${JSON.stringify(recentSales.slice(0, 20).map(s => ({
+  invoiceNumber: s.invoice_number,
+  date: s.sale_date,
+  total: s.total_amount,
+  items: s.sale_items?.length || 0,
+  paymentStatus: s.payment_status
+})), null, 2)}
+
+=== SALE RETURNS (${saleReturns.length}) ===
+${JSON.stringify(saleReturns.map(r => ({
+  invoiceNumber: r.original_invoice_number,
+  product: r.products?.name,
+  quantityReturned: r.quantity_returned,
+  reason: r.reason,
+  status: r.return_status
+})), null, 2)}
+
+INSTRUCTIONS:
+1. Answer questions accurately using the data above
+2. For "Can I produce X?" questions, check the Production Feasibility Analysis
+3. For "What's blocking production?" questions, list the blocking materials with quantities needed
+4. Use bullet points and tables for clarity
+5. Be specific with numbers and quantities
+6. If data is missing, clearly state that
+7. Calculate totals when asked (e.g., total stock value, total sales)
+8. For MRP (Material Requirements Planning) questions, calculate based on BOM data`;
 
     } else if (type === "product_helper") {
       // Fetch raw materials for BOM suggestions
@@ -70,9 +203,9 @@ Provide helpful, accurate answers based on this data. If you don't have specific
         .from("products")
         .select("name, category, description")
         .eq("is_active", true)
-        .limit(10);
+        .limit(20);
 
-      systemPrompt = `You are a product development assistant for a pharmaceutical/nutraceutical company (Gazi Laboratories). Help create product descriptions and suggest Bill of Materials (BOM) based on available raw materials.
+      systemPrompt = `You are "Gazi Inventory Assistant" - a product development assistant for Gazi Laboratories. Help create product descriptions and suggest Bill of Materials (BOM) based on available raw materials.
 
 Available Raw Materials:
 ${JSON.stringify(rawMaterials || [], null, 2)}
@@ -109,16 +242,16 @@ Return structured JSON when providing BOM suggestions with format:
           sale_items(quantity, product_id, products(name, category))
         `)
         .order("sale_date", { ascending: false })
-        .limit(100);
+        .limit(200);
 
       const { data: products } = await supabase
         .from("products")
         .select("id, name, category, current_stock, min_stock_level")
         .eq("is_active", true);
 
-      systemPrompt = `You are a demand forecasting analyst for Gazi Laboratories. Analyze sales history to predict future product demand and provide actionable insights.
+      systemPrompt = `You are "Gazi Inventory Assistant" - a demand forecasting analyst for Gazi Laboratories. Analyze sales history to predict future product demand and provide actionable insights.
 
-Historical Sales Data (last 100 orders):
+Historical Sales Data (last 200 orders):
 ${JSON.stringify(salesHistory || [], null, 2)}
 
 Current Products:
@@ -175,7 +308,7 @@ Format your response with clear sections and use tables or bullet points for cla
     const data = await response.json();
     const content = data.choices?.[0]?.message?.content || "No response generated";
 
-    console.log("AI response generated successfully");
+    console.log("Gazi Inventory Assistant response generated successfully");
 
     return new Response(
       JSON.stringify({ response: content }),

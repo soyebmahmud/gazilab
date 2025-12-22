@@ -10,7 +10,7 @@ const AIHubPage = () => {
       <div>
         <h1 className="text-3xl font-bold tracking-tight">AI Hub</h1>
         <p className="text-muted-foreground">
-          AI-powered tools to help manage inventory, products, and forecasting
+          Gazi Inventory Assistant - AI-powered tools for inventory management
         </p>
       </div>
 
@@ -18,7 +18,7 @@ const AIHubPage = () => {
         <TabsList className="grid w-full grid-cols-3">
           <TabsTrigger value="chatbot" className="flex items-center gap-2">
             <Bot className="h-4 w-4" />
-            <span className="hidden sm:inline">Inventory Assistant</span>
+            <span className="hidden sm:inline">Gazi Assistant</span>
             <span className="sm:hidden">Chat</span>
           </TabsTrigger>
           <TabsTrigger value="product" className="flex items-center gap-2">

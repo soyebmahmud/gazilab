@@ -10,8 +10,8 @@ import { Badge } from '@/components/ui/badge';
 import { useProductionBatches, useCreateProduction, useStartProduction, useCompleteProduction } from '@/hooks/useProduction';
 import { useProducts } from '@/hooks/useProducts';
 import { useActiveBOM } from '@/hooks/useBOM';
-import { Plus, Play, CheckCircle, Calendar, AlertTriangle, PackagePlus } from 'lucide-react';
-import { useState } from 'react';
+import { Plus, Play, CheckCircle, Calendar, AlertTriangle, PackagePlus, Search, X } from 'lucide-react';
+import { useState, useMemo } from 'react';
 import { format } from 'date-fns';
 import { AddStockDialog } from '@/components/AddStockDialog';
 import { RawMaterial } from '@/types/database';
@@ -20,12 +20,24 @@ function CreateProductionDialog({ onClose }: { onClose: () => void }) {
   const { data: products } = useProducts();
   const createProduction = useCreateProduction();
   const [productId, setProductId] = useState('');
+  const [productSearch, setProductSearch] = useState('');
   const { data: activeBom } = useActiveBOM(productId);
-  const [packsQuantity, setPacksQuantity] = useState(0); // Input in packs/strips
+  const [packsQuantity, setPacksQuantity] = useState(0);
   const [manufacturingDate, setManufacturingDate] = useState(format(new Date(), 'yyyy-MM-dd'));
   const [expiryDate, setExpiryDate] = useState('');
   const [notes, setNotes] = useState('');
   const [addStockMaterial, setAddStockMaterial] = useState<RawMaterial | null>(null);
+
+  // Filter products based on search
+  const filteredProducts = useMemo(() => {
+    if (!products) return [];
+    if (!productSearch.trim()) return products;
+    const search = productSearch.toLowerCase();
+    return products.filter(p => 
+      p.name.toLowerCase().includes(search) || 
+      p.sku.toLowerCase().includes(search)
+    );
+  }, [products, productSearch]);
 
   // Get selected product
   const selectedProduct = products?.find(p => p.id === productId);
@@ -40,7 +52,7 @@ function CreateProductionDialog({ onClose }: { onClose: () => void }) {
     await createProduction.mutateAsync({ 
       product_id: productId, 
       bom_id: activeBom.id, 
-      quantity_planned: totalUnits, // Always save in units
+      quantity_planned: totalUnits,
       manufacturing_date: manufacturingDate || undefined,
       expiry_date: expiryDate || undefined,
       notes: notes || undefined
@@ -69,10 +81,41 @@ function CreateProductionDialog({ onClose }: { onClose: () => void }) {
     <form onSubmit={handleSubmit} className="space-y-4 max-h-[70vh] overflow-y-auto">
       <div className="space-y-2">
         <Label>Product *</Label>
+        <div className="relative">
+          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+          <Input
+            value={productSearch}
+            onChange={(e) => setProductSearch(e.target.value)}
+            placeholder="Search products by name or SKU..."
+            className="pl-9"
+          />
+          {productSearch && (
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              className="absolute right-1 top-1/2 transform -translate-y-1/2 h-6 w-6 p-0"
+              onClick={() => setProductSearch('')}
+            >
+              <X className="h-3 w-3" />
+            </Button>
+          )}
+        </div>
         <Select value={productId} onValueChange={setProductId}>
           <SelectTrigger><SelectValue placeholder="Select product" /></SelectTrigger>
-          <SelectContent>
-            {products?.map(p => <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>)}
+          <SelectContent className="max-h-60">
+            {filteredProducts.length === 0 ? (
+              <div className="p-2 text-sm text-muted-foreground text-center">No products found</div>
+            ) : (
+              filteredProducts.map(p => (
+                <SelectItem key={p.id} value={p.id}>
+                  <div className="flex items-center gap-2">
+                    <span>{p.name}</span>
+                    <span className="text-xs text-muted-foreground">({p.sku})</span>
+                  </div>
+                </SelectItem>
+              ))
+            )}
           </SelectContent>
         </Select>
       </div>
@@ -224,6 +267,18 @@ export default function ProductionPage() {
   const startProduction = useStartProduction();
   const completeProduction = useCompleteProduction();
   const [dialogOpen, setDialogOpen] = useState(false);
+  const [searchQuery, setSearchQuery] = useState('');
+
+  // Filter batches based on search
+  const filteredBatches = useMemo(() => {
+    if (!batches) return [];
+    if (!searchQuery.trim()) return batches;
+    const search = searchQuery.toLowerCase();
+    return batches.filter((batch: any) => 
+      batch.batch_number.toLowerCase().includes(search) ||
+      batch.product?.name?.toLowerCase().includes(search)
+    );
+  }, [batches, searchQuery]);
 
   const handleStart = (id: string) => startProduction.mutate(id);
   const handleComplete = (id: string, planned: number) => {
@@ -255,13 +310,34 @@ export default function ProductionPage() {
           </Dialog>
         </div>
 
+        {/* Search */}
+        <div className="relative max-w-md">
+          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+          <Input
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            placeholder="Search by batch number or product name..."
+            className="pl-9"
+          />
+          {searchQuery && (
+            <Button
+              variant="ghost"
+              size="sm"
+              className="absolute right-1 top-1/2 transform -translate-y-1/2 h-7 w-7 p-0"
+              onClick={() => setSearchQuery('')}
+            >
+              <X className="h-4 w-4" />
+            </Button>
+          )}
+        </div>
+
         <Card>
           <CardContent className="p-0">
             {isLoading ? (
               <div className="p-8 text-center">Loading...</div>
-            ) : batches?.length === 0 ? (
+            ) : filteredBatches.length === 0 ? (
               <div className="p-8 text-center text-muted-foreground">
-                No production batches yet. Create one to get started.
+                {searchQuery ? 'No batches match your search.' : 'No production batches yet. Create one to get started.'}
               </div>
             ) : (
               <Table>
@@ -278,7 +354,7 @@ export default function ProductionPage() {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {batches?.map((batch: any) => (
+                  {filteredBatches.map((batch: any) => (
                     <TableRow key={batch.id}>
                       <TableCell className="font-mono text-sm">{batch.batch_number}</TableCell>
                       <TableCell className="font-medium">{batch.product?.name}</TableCell>

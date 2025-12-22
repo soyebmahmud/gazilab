@@ -1,5 +1,5 @@
 import { MainLayout } from '@/components/layout/MainLayout';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -9,9 +9,8 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Badge } from '@/components/ui/badge';
 import { useRawMaterials, useCreateRawMaterial, useUpdateRawMaterial, useDeleteRawMaterial, useMaterialUsage, useCanDeleteMaterial, useDeletedRawMaterials, useRestoreRawMaterial } from '@/hooks/useRawMaterials';
 import { RawMaterial, MaterialCategory, UnitType } from '@/types/database';
-import { Plus, Pencil, Trash2, Eye, AlertTriangle, RotateCcw, Archive, PackagePlus } from 'lucide-react';
-import { useState } from 'react';
-import { toast } from 'sonner';
+import { Plus, Pencil, Trash2, Eye, AlertTriangle, RotateCcw, Archive, PackagePlus, Search, X } from 'lucide-react';
+import { useState, useMemo } from 'react';
 import { AddStockDialog } from '@/components/AddStockDialog';
 
 const CATEGORIES: MaterialCategory[] = ['herbs', 'chemicals', 'packaging'];
@@ -161,6 +160,7 @@ export default function RawMaterialsPage() {
   const [selectedMaterial, setSelectedMaterial] = useState<RawMaterial | null>(null);
   const [showDeleted, setShowDeleted] = useState(false);
   const [addStockMaterial, setAddStockMaterial] = useState<RawMaterial | null>(null);
+  const [searchQuery, setSearchQuery] = useState('');
 
   const handleEdit = (material: RawMaterial) => {
     setEditMaterial(material);
@@ -178,7 +178,18 @@ export default function RawMaterialsPage() {
     setUsageDialogOpen(true);
   };
 
-  const displayMaterials = showDeleted ? deletedMaterials : materials;
+  // Filter materials based on search
+  const filteredMaterials = useMemo(() => {
+    const sourceList = showDeleted ? deletedMaterials : materials;
+    if (!sourceList) return [];
+    if (!searchQuery.trim()) return sourceList;
+    const search = searchQuery.toLowerCase();
+    return sourceList.filter(m => 
+      m.name.toLowerCase().includes(search) || 
+      m.sku.toLowerCase().includes(search) ||
+      m.category.toLowerCase().includes(search)
+    );
+  }, [materials, deletedMaterials, showDeleted, searchQuery]);
 
   return (
     <MainLayout>
@@ -207,10 +218,35 @@ export default function RawMaterialsPage() {
           </div>
         </div>
 
+        {/* Search */}
+        <div className="relative max-w-md">
+          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+          <Input
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            placeholder="Search by name, SKU, or category..."
+            className="pl-9"
+          />
+          {searchQuery && (
+            <Button
+              variant="ghost"
+              size="sm"
+              className="absolute right-1 top-1/2 transform -translate-y-1/2 h-7 w-7 p-0"
+              onClick={() => setSearchQuery('')}
+            >
+              <X className="h-4 w-4" />
+            </Button>
+          )}
+        </div>
+
         <Card>
           <CardContent className="p-0">
             {isLoading ? (
               <div className="p-8 text-center">Loading...</div>
+            ) : filteredMaterials.length === 0 ? (
+              <div className="p-8 text-center text-muted-foreground">
+                {searchQuery ? 'No materials match your search.' : 'No raw materials yet. Add one to get started.'}
+              </div>
             ) : (
               <Table>
                 <TableHeader>
@@ -226,7 +262,7 @@ export default function RawMaterialsPage() {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {displayMaterials?.map((material) => (
+                  {filteredMaterials.map((material) => (
                     <TableRow key={material.id}>
                       <TableCell className="font-medium">{material.name}</TableCell>
                       <TableCell>{material.sku}</TableCell>
