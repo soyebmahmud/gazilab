@@ -10,8 +10,8 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { useBOMs, useBOM, useCreateBOM, useProductsWithoutBOM } from '@/hooks/useBOM';
 import { useProducts } from '@/hooks/useProducts';
 import { useRawMaterials } from '@/hooks/useRawMaterials';
-import { Plus, Eye, X, Copy } from 'lucide-react';
-import { useState } from 'react';
+import { Plus, Eye, X, Copy, Search } from 'lucide-react';
+import { useState, useMemo } from 'react';
 
 interface BOMItemForm {
   raw_material_id: string;
@@ -250,6 +250,18 @@ export default function BOMPage() {
   const [createDialogOpen, setCreateDialogOpen] = useState(false);
   const [newVersionProductId, setNewVersionProductId] = useState<string | undefined>();
   const [detailsBomId, setDetailsBomId] = useState<string | null>(null);
+  const [searchQuery, setSearchQuery] = useState('');
+
+  // Filter BOMs based on search
+  const filteredBoms = useMemo(() => {
+    if (!boms) return [];
+    if (!searchQuery.trim()) return boms;
+    const search = searchQuery.toLowerCase();
+    return boms.filter((bom: any) => 
+      bom.product?.name?.toLowerCase().includes(search) ||
+      bom.product?.sku?.toLowerCase().includes(search)
+    );
+  }, [boms, searchQuery]);
 
   const handleCreateNewVersion = (productId: string) => {
     setNewVersionProductId(productId);
@@ -282,13 +294,34 @@ export default function BOMPage() {
           </Dialog>
         </div>
 
+        {/* Search */}
+        <div className="relative max-w-md">
+          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+          <Input
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            placeholder="Search by product name or SKU..."
+            className="pl-9"
+          />
+          {searchQuery && (
+            <Button
+              variant="ghost"
+              size="sm"
+              className="absolute right-1 top-1/2 transform -translate-y-1/2 h-7 w-7 p-0"
+              onClick={() => setSearchQuery('')}
+            >
+              <X className="h-4 w-4" />
+            </Button>
+          )}
+        </div>
+
         <Card>
           <CardContent className="p-0">
             {isLoading ? (
               <div className="p-8 text-center">Loading...</div>
-            ) : boms?.length === 0 ? (
+            ) : filteredBoms?.length === 0 ? (
               <div className="p-8 text-center text-muted-foreground">
-                No BOMs found. Create one for a product to get started.
+                {searchQuery ? 'No BOMs match your search.' : 'No BOMs found. Create one for a product to get started.'}
               </div>
             ) : (
               <Table>
@@ -304,7 +337,7 @@ export default function BOMPage() {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {boms?.map((bom) => (
+                  {filteredBoms?.map((bom) => (
                     <TableRow key={bom.id}>
                       <TableCell className="font-medium">{bom.product?.name}</TableCell>
                       <TableCell className="text-muted-foreground">{bom.product?.sku}</TableCell>

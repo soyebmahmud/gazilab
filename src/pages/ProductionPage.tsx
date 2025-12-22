@@ -4,6 +4,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
@@ -268,17 +269,29 @@ export default function ProductionPage() {
   const completeProduction = useCompleteProduction();
   const [dialogOpen, setDialogOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
+  const [statusFilter, setStatusFilter] = useState<string>('all');
 
-  // Filter batches based on search
+  // Filter batches based on search and status
   const filteredBatches = useMemo(() => {
     if (!batches) return [];
-    if (!searchQuery.trim()) return batches;
-    const search = searchQuery.toLowerCase();
-    return batches.filter((batch: any) => 
-      batch.batch_number.toLowerCase().includes(search) ||
-      batch.product?.name?.toLowerCase().includes(search)
-    );
-  }, [batches, searchQuery]);
+    let filtered = batches;
+    
+    // Apply status filter
+    if (statusFilter !== 'all') {
+      filtered = filtered.filter((batch: any) => batch.status === statusFilter);
+    }
+    
+    // Apply search filter
+    if (searchQuery.trim()) {
+      const search = searchQuery.toLowerCase();
+      filtered = filtered.filter((batch: any) => 
+        batch.batch_number.toLowerCase().includes(search) ||
+        batch.product?.name?.toLowerCase().includes(search)
+      );
+    }
+    
+    return filtered;
+  }, [batches, searchQuery, statusFilter]);
 
   const handleStart = (id: string) => startProduction.mutate(id);
   const handleComplete = (id: string, planned: number) => {
@@ -310,25 +323,37 @@ export default function ProductionPage() {
           </Dialog>
         </div>
 
-        {/* Search */}
-        <div className="relative max-w-md">
-          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-          <Input
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            placeholder="Search by batch number or product name..."
-            className="pl-9"
-          />
-          {searchQuery && (
-            <Button
-              variant="ghost"
-              size="sm"
-              className="absolute right-1 top-1/2 transform -translate-y-1/2 h-7 w-7 p-0"
-              onClick={() => setSearchQuery('')}
-            >
-              <X className="h-4 w-4" />
-            </Button>
-          )}
+        {/* Search and Filters */}
+        <div className="flex flex-col sm:flex-row gap-4">
+          <div className="relative flex-1 max-w-md">
+            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+            <Input
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              placeholder="Search by batch number or product name..."
+              className="pl-9"
+            />
+            {searchQuery && (
+              <Button
+                variant="ghost"
+                size="sm"
+                className="absolute right-1 top-1/2 transform -translate-y-1/2 h-7 w-7 p-0"
+                onClick={() => setSearchQuery('')}
+              >
+                <X className="h-4 w-4" />
+              </Button>
+            )}
+          </div>
+          
+          {/* Status Filter Tabs */}
+          <Tabs value={statusFilter} onValueChange={setStatusFilter} className="w-auto">
+            <TabsList>
+              <TabsTrigger value="all" className="text-xs">All</TabsTrigger>
+              <TabsTrigger value="planned" className="text-xs">Planned</TabsTrigger>
+              <TabsTrigger value="in_progress" className="text-xs">In Progress</TabsTrigger>
+              <TabsTrigger value="completed" className="text-xs">Completed</TabsTrigger>
+            </TabsList>
+          </Tabs>
         </div>
 
         <Card>

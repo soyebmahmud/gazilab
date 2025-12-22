@@ -1,7 +1,8 @@
 import { MainLayout } from '@/components/layout/MainLayout';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { useDashboardStats, useInventoryInsights, useManufacturingInsights, useAlerts, useSalesTrends, useProductionTrends, useWeeklySales, useInventoryTrends, useTopSellingProducts, useProfitMargins, useMaterialConsumption, useSalesByCustomer } from '@/hooks/useDashboard';
-import { Package, Leaf, DollarSign, Factory, AlertTriangle, TrendingUp, Boxes, Ban, ShoppingCart, Activity, Calendar, Warehouse, Trophy, Percent, FlaskConical, Users } from 'lucide-react';
+import { useProductionFeasibility } from '@/hooks/useProductionFeasibility';
+import { Package, Leaf, DollarSign, Factory, AlertTriangle, TrendingUp, Boxes, Ban, ShoppingCart, Activity, Calendar, Warehouse, Trophy, Percent, FlaskConical, Users, CheckCircle, XCircle } from 'lucide-react';
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip, BarChart, Bar, XAxis, YAxis, CartesianGrid, LineChart, Line, Legend } from 'recharts';
 import { Badge } from '@/components/ui/badge';
 
@@ -45,6 +46,7 @@ export default function Dashboard() {
   const { data: profitMargins } = useProfitMargins();
   const { data: materialConsumption } = useMaterialConsumption();
   const { data: salesByCustomer } = useSalesByCustomer();
+  const { data: feasibility } = useProductionFeasibility();
 
   if (statsLoading) {
     return (
@@ -110,6 +112,64 @@ export default function Dashboard() {
                   </div>
                 ))}
               </div>
+            </CardContent>
+          </Card>
+        )}
+
+        {/* Production Feasibility Widget */}
+        {feasibility && feasibility.length > 0 && (
+          <Card className="border-primary/30 bg-primary/5">
+            <CardHeader className="pb-3">
+              <CardTitle className="flex items-center gap-2">
+                <Factory className="h-5 w-5 text-primary" />
+                Production Feasibility Status
+              </CardTitle>
+              <p className="text-sm text-muted-foreground">
+                Which products can be manufactured with current stock
+              </p>
+            </CardHeader>
+            <CardContent>
+              <div className="grid gap-3 md:grid-cols-2 lg:grid-cols-3">
+                {feasibility.slice(0, 9).map((item) => (
+                  <div 
+                    key={item.productId} 
+                    className={`p-3 rounded-lg border ${
+                      item.canProduce 
+                        ? 'bg-primary/10 border-primary/30' 
+                        : 'bg-destructive/10 border-destructive/30'
+                    }`}
+                  >
+                    <div className="flex items-start justify-between gap-2">
+                      <div className="flex-1 min-w-0">
+                        <p className="font-medium text-sm truncate">{item.productName}</p>
+                        <p className="text-xs text-muted-foreground">{item.productSku}</p>
+                      </div>
+                      {item.canProduce ? (
+                        <CheckCircle className="h-5 w-5 text-primary flex-shrink-0" />
+                      ) : (
+                        <XCircle className="h-5 w-5 text-destructive flex-shrink-0" />
+                      )}
+                    </div>
+                    <div className="mt-2 text-xs">
+                      {item.canProduce ? (
+                        <span className="text-primary font-medium">
+                          Can produce up to {item.maxProducibleQuantity.toLocaleString()} units
+                        </span>
+                      ) : (
+                        <span className="text-destructive">
+                          Blocked by: {item.blockingMaterials.map(m => m.name).slice(0, 2).join(', ')}
+                          {item.blockingMaterials.length > 2 && ` +${item.blockingMaterials.length - 2} more`}
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                ))}
+              </div>
+              {feasibility.length > 9 && (
+                <p className="text-xs text-muted-foreground mt-3 text-center">
+                  Showing 9 of {feasibility.length} products with BOMs
+                </p>
+              )}
             </CardContent>
           </Card>
         )}
