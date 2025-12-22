@@ -1,5 +1,6 @@
 import { MainLayout } from '@/components/layout/MainLayout';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { ModuleManual, BOM_MANUAL } from '@/components/ModuleManual';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -276,6 +277,7 @@ export default function BOMPage() {
   return (
     <MainLayout>
       <div className="space-y-6">
+        <ModuleManual {...BOM_MANUAL} />
         <div className="flex items-center justify-between">
           <div>
             <h1 className="text-3xl font-bold">Bill of Materials</h1>

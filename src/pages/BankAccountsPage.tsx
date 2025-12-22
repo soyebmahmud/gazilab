@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { format } from 'date-fns';
 import { MainLayout } from '@/components/layout/MainLayout';
+import { ModuleManual, BANK_ACCOUNTS_MANUAL } from '@/components/ModuleManual';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Button } from '@/components/ui/button';
@@ -83,6 +84,7 @@ export default function BankAccountsPage() {
   return (
     <MainLayout>
       <div className="space-y-6">
+        <ModuleManual {...BANK_ACCOUNTS_MANUAL} />
         <div className="flex justify-between items-start">
           <div>
             <h1 className="text-3xl font-bold">ব্যাংক অ্যাকাউন্ট / Bank Accounts</h1>

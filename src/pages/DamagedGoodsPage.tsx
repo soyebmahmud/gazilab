@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { MainLayout } from '@/components/layout/MainLayout';
+import { ModuleManual, DAMAGED_GOODS_MANUAL } from '@/components/ModuleManual';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -301,6 +302,7 @@ export default function DamagedGoodsPage() {
   return (
     <MainLayout>
       <div className="space-y-6">
+        <ModuleManual {...DAMAGED_GOODS_MANUAL} />
         <div className="flex items-center justify-between">
           <div>
             <h1 className="text-3xl font-bold">Damaged Goods Management</h1>
