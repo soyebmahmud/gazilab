@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { format, subDays, startOfMonth, endOfMonth } from 'date-fns';
 import { MainLayout } from '@/components/layout/MainLayout';
+import { ModuleManual, REPORTS_MANUAL } from '@/components/ModuleManual';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Button } from '@/components/ui/button';
@@ -39,6 +40,7 @@ export default function ReportsPage() {
   return (
     <MainLayout>
       <div className="space-y-6">
+        <ModuleManual {...REPORTS_MANUAL} />
         <div>
           <h1 className="text-3xl font-bold">রিপোর্টস / Reports</h1>
           <p className="text-muted-foreground">সম্পূর্ণ রিপোর্টিং সিস্টেম - বিক্রয়, ক্রয়, স্টক, লাভ-ক্ষতি সব এক জায়গায়</p>

@@ -1,5 +1,6 @@
 import { MainLayout } from '@/components/layout/MainLayout';
 import { Card, CardContent } from '@/components/ui/card';
+import { ModuleManual, RAW_MATERIALS_MANUAL } from '@/components/ModuleManual';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -194,6 +195,7 @@ export default function RawMaterialsPage() {
   return (
     <MainLayout>
       <div className="space-y-6">
+        <ModuleManual {...RAW_MATERIALS_MANUAL} />
         <div className="flex items-center justify-between">
           <div>
             <h1 className="text-3xl font-bold">Raw Materials</h1>

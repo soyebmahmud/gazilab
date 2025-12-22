@@ -1,5 +1,6 @@
 import { MainLayout } from '@/components/layout/MainLayout';
 import { Card, CardContent } from '@/components/ui/card';
+import { ModuleManual, PRODUCTS_MANUAL } from '@/components/ModuleManual';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -279,6 +280,7 @@ export default function ProductsPage() {
   return (
     <MainLayout>
       <div className="space-y-6">
+        <ModuleManual {...PRODUCTS_MANUAL} />
         <div className="flex items-center justify-between">
           <div>
             <h1 className="text-3xl font-bold">Products</h1>

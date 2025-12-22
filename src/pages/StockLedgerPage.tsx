@@ -1,5 +1,6 @@
 import { MainLayout } from '@/components/layout/MainLayout';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { ModuleManual, STOCK_LEDGER_MANUAL } from '@/components/ModuleManual';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
@@ -24,6 +25,7 @@ export default function StockLedgerPage() {
   return (
     <MainLayout>
       <div className="space-y-6">
+        <ModuleManual {...STOCK_LEDGER_MANUAL} />
         <div>
           <h1 className="text-3xl font-bold">Stock Ledger</h1>
           <p className="text-muted-foreground">Complete stock movement history</p>
