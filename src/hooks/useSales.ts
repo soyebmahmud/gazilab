@@ -64,17 +64,20 @@ export function useProductBatches(productId: string) {
   });
 }
 
+type SaleUnitType = 'units' | 'primary' | 'secondary' | 'tertiary';
+
 interface CreateSaleData {
   customer_id?: string;
   sale_date: string;
   discount_amount: number;
   tax_percent: number;
   notes?: string;
-  manual_invoice_number?: string; // Optional manual invoice number
+  manual_invoice_number?: string;
   items: {
     product_id: string;
     production_batch_id?: string;
     quantity: number;
+    unit_type: SaleUnitType;
     unit_price: number;
     discount_percent: number;
   }[];
@@ -96,13 +99,45 @@ export function useCreateSale() {
         invoiceNumber = generatedNumber;
       }
       
-      // Calculate totals
+      // Convert units based on packaging config for each item
       let subtotal = 0;
-      const processedItems = data.items.map(item => {
+      const processedItems = [];
+      
+      for (const item of data.items) {
+        let actualQuantity = item.quantity;
+        
+        // If not selling in base units, convert to base units
+        if (item.unit_type !== 'units') {
+          const { data: packagingConfig } = await supabase
+            .from('product_packaging_configs')
+            .select('*')
+            .eq('product_id', item.product_id)
+            .eq('is_default', true)
+            .single();
+          
+          if (packagingConfig) {
+            const { data: converted } = await supabase
+              .rpc('calculate_packaging_units', {
+                p_packaging_config_id: packagingConfig.id,
+                p_quantity: item.quantity,
+                p_unit_type: item.unit_type
+              });
+            
+            if (converted && converted.length > 0) {
+              actualQuantity = converted[0].total_units;
+            }
+          }
+        }
+        
         const lineTotal = item.quantity * item.unit_price * (1 - item.discount_percent / 100);
         subtotal += lineTotal;
-        return { ...item, line_total: lineTotal };
-      });
+        
+        processedItems.push({
+          ...item,
+          actual_quantity: actualQuantity,
+          line_total: lineTotal
+        });
+      }
       
       const taxAmount = (subtotal - data.discount_amount) * (data.tax_percent / 100);
       const totalAmount = subtotal - data.discount_amount + taxAmount;
@@ -127,7 +162,7 @@ export function useCreateSale() {
       
       if (saleError) throw saleError;
       
-      // Create sale items
+      // Create sale items with actual_quantity for stock deduction
       const { error: itemsError } = await supabase
         .from('sale_items')
         .insert(
@@ -135,7 +170,7 @@ export function useCreateSale() {
             sale_id: sale.id,
             product_id: item.product_id,
             production_batch_id: item.production_batch_id || null,
-            quantity: item.quantity,
+            quantity: item.actual_quantity, // Use converted quantity
             unit_price: item.unit_price,
             discount_percent: item.discount_percent,
             line_total: item.line_total
@@ -144,17 +179,28 @@ export function useCreateSale() {
       
       if (itemsError) throw itemsError;
       
-      // Deduct from stock ledger
+      // Deduct from stock ledger using actual quantities
       for (const item of processedItems) {
+        // Validate stock before deducting
+        const { data: product } = await supabase
+          .from('products')
+          .select('current_stock, name')
+          .eq('id', item.product_id)
+          .single();
+        
+        if (product && product.current_stock < item.actual_quantity) {
+          throw new Error(`Insufficient stock for ${product.name}. Required: ${item.actual_quantity}, Available: ${product.current_stock}`);
+        }
+        
         const { error: ledgerError } = await supabase
           .from('stock_ledger_products')
           .insert({
             product_id: item.product_id,
             movement_type: 'sale',
-            quantity: item.quantity,
+            quantity: item.actual_quantity,
             reference_id: sale.id,
             reference_type: 'sale',
-            notes: `Invoice: ${invoiceNumber}`,
+            notes: `Invoice: ${invoiceNumber} (${item.quantity} ${item.unit_type})`,
             balance_after: 0 // Will be calculated by trigger
           });
         
