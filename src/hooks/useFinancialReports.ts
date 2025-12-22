@@ -29,8 +29,9 @@ export interface PurchaseReportData {
 }
 
 export interface ProfitLossData {
-  total_sales: number;
-  total_cost_of_goods: number;
+  total_sales: number; // Net sales after returns
+  gross_sales: number; // Gross sales before returns
+  total_cost_of_goods: number; // COGS adjusted for restored returns
   gross_profit: number;
   total_expenses: number;
   total_damage_loss: number;
@@ -162,22 +163,30 @@ export function useProfitLossReport(dateFrom: string, dateTo: string) {
   return useQuery({
     queryKey: ['profit-loss-report', dateFrom, dateTo],
     queryFn: async () => {
-      // Get sales data
+      // Get sales data with their IDs for proper COGS calculation
       const { data: sales } = await supabase
         .from('sales')
-        .select('total_amount, subtotal')
+        .select('id, total_amount, subtotal')
         .gte('sale_date', dateFrom)
         .lte('sale_date', dateTo);
       
-      // Get sale items with cost
-      const { data: saleItems } = await supabase
-        .from('sale_items')
-        .select(`
-          quantity,
-          product:products(cost_price)
-        `)
-        .gte('created_at', `${dateFrom}T00:00:00`)
-        .lte('created_at', `${dateTo}T23:59:59`);
+      const saleIds = sales?.map(s => s.id) || [];
+      
+      // Get sale items with cost - FILTERED BY SALE IDs to ensure date consistency
+      // This ensures COGS aligns with the sales in the date range
+      let totalCostOfGoods = 0;
+      if (saleIds.length > 0) {
+        const { data: saleItems } = await supabase
+          .from('sale_items')
+          .select(`
+            quantity,
+            product:products(cost_price)
+          `)
+          .in('sale_id', saleIds);
+        
+        totalCostOfGoods = saleItems?.reduce((sum, item) => 
+          sum + (item.quantity * (item.product?.cost_price || 0)), 0) || 0;
+      }
       
       // Get expenses
       const { data: expenses } = await supabase
@@ -186,41 +195,71 @@ export function useProfitLossReport(dateFrom: string, dateTo: string) {
         .gte('expense_date', dateFrom)
         .lte('expense_date', dateTo);
       
-      // Get damaged goods (losses)
+      // Get damaged goods losses - includes destroyed items only
+      // (Restored items return to stock and don't affect P&L)
+      // (Pending items are not yet finalized, so excluded from P&L)
       const { data: damages } = await supabase
         .from('damaged_goods')
         .select(`
           quantity,
-          product:products(cost_price)
+          product:products(cost_price),
+          created_at
         `)
         .eq('status', 'destroyed')
         .gte('created_at', `${dateFrom}T00:00:00`)
         .lte('created_at', `${dateTo}T23:59:59`);
       
-      // Get returns
+      // Get returns - these reduce revenue
+      // Returns at selling_price reduce revenue, returns at cost affect COGS adjustment
       const { data: returns } = await supabase
         .from('sale_returns')
         .select(`
           quantity_returned,
-          product:products(selling_price)
+          restore_to_stock,
+          product:products(selling_price, cost_price)
         `)
         .gte('return_date', dateFrom)
         .lte('return_date', dateTo);
       
-      const totalSales = sales?.reduce((sum, s) => sum + s.total_amount, 0) || 0;
-      const totalCostOfGoods = saleItems?.reduce((sum, item) => 
-        sum + (item.quantity * (item.product?.cost_price || 0)), 0) || 0;
-      const grossProfit = totalSales - totalCostOfGoods;
-      const totalExpenses = expenses?.reduce((sum, e) => sum + e.amount, 0) || 0;
-      const totalDamageLoss = damages?.reduce((sum, d) => 
-        sum + (d.quantity * (d.product?.cost_price || 0)), 0) || 0;
+      // Calculate totals
+      const grossSales = sales?.reduce((sum, s) => sum + s.total_amount, 0) || 0;
+      
+      // Returns value at selling price - this reduces revenue
       const returnsValue = returns?.reduce((sum, r) => 
         sum + (r.quantity_returned * (r.product?.selling_price || 0)), 0) || 0;
+      
+      // Returns COGS adjustment - if items are returned and restored to stock,
+      // we should reduce COGS since those goods are back in inventory
+      const returnsCOGSAdjustment = returns?.reduce((sum, r) => {
+        if (r.restore_to_stock) {
+          return sum + (r.quantity_returned * (r.product?.cost_price || 0));
+        }
+        return sum;
+      }, 0) || 0;
+      
+      // Net Sales = Gross Sales - Returns
+      const netSales = grossSales - returnsValue;
+      
+      // Adjusted COGS = COGS - COGS of returned items (if restored to stock)
+      const adjustedCOGS = totalCostOfGoods - returnsCOGSAdjustment;
+      
+      // Gross Profit = Net Sales - Adjusted COGS
+      const grossProfit = netSales - adjustedCOGS;
+      
+      const totalExpenses = expenses?.reduce((sum, e) => sum + e.amount, 0) || 0;
+      
+      // Damage loss = cost of destroyed items (already removed from stock via stock ledger)
+      const totalDamageLoss = damages?.reduce((sum, d) => 
+        sum + (d.quantity * (d.product?.cost_price || 0)), 0) || 0;
+      
+      // Net Profit = Gross Profit - Expenses - Damage Loss
+      // Note: Returns are already factored into Net Sales and adjusted COGS above
       const netProfit = grossProfit - totalExpenses - totalDamageLoss;
       
       return {
-        total_sales: totalSales,
-        total_cost_of_goods: totalCostOfGoods,
+        total_sales: netSales, // Net sales after returns
+        gross_sales: grossSales, // Gross sales before returns
+        total_cost_of_goods: adjustedCOGS, // COGS adjusted for restored returns
         gross_profit: grossProfit,
         total_expenses: totalExpenses,
         total_damage_loss: totalDamageLoss,
