@@ -68,6 +68,7 @@ interface CreateProductionData {
   product_id: string;
   bom_id: string;
   quantity_planned: number;
+  packaging_config_id?: string;
   manufacturing_date?: string;
   expiry_date?: string;
   notes?: string;
