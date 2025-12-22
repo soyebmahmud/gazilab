@@ -512,6 +512,79 @@ export function useTopSellingProducts() {
   });
 }
 
+// Top 5 Most Profitable Products
+export function useTopProfitableProducts() {
+  return useQuery({
+    queryKey: ['top-profitable-products'],
+    queryFn: async () => {
+      // Get sale items with product info
+      const { data, error } = await supabase
+        .from('sale_items')
+        .select(`
+          quantity,
+          line_total,
+          unit_price,
+          product:products(id, name, sku, cost_price, selling_price)
+        `);
+      
+      if (error) throw error;
+      
+      // Calculate profit per product
+      const productProfits: Record<string, { 
+        name: string; 
+        sku: string; 
+        totalRevenue: number; 
+        totalCost: number;
+        totalProfit: number;
+        unitsSold: number;
+        profitMargin: number;
+      }> = {};
+      
+      for (const item of data || []) {
+        const product = item.product as any;
+        if (!product) continue;
+        
+        const productId = product.id;
+        const costPrice = Number(product.cost_price) || 0;
+        const revenue = Number(item.line_total) || 0;
+        const cost = Number(item.quantity) * costPrice;
+        const profit = revenue - cost;
+        
+        if (!productProfits[productId]) {
+          productProfits[productId] = {
+            name: product.name,
+            sku: product.sku,
+            totalRevenue: 0,
+            totalCost: 0,
+            totalProfit: 0,
+            unitsSold: 0,
+            profitMargin: 0
+          };
+        }
+        
+        productProfits[productId].totalRevenue += revenue;
+        productProfits[productId].totalCost += cost;
+        productProfits[productId].totalProfit += profit;
+        productProfits[productId].unitsSold += Number(item.quantity);
+      }
+      
+      // Calculate profit margin and sort by total profit
+      const topProducts = Object.entries(productProfits)
+        .map(([id, data]) => ({
+          id,
+          ...data,
+          profitMargin: data.totalRevenue > 0 
+            ? ((data.totalProfit / data.totalRevenue) * 100) 
+            : 0
+        }))
+        .sort((a, b) => b.totalProfit - a.totalProfit)
+        .slice(0, 5);
+      
+      return topProducts;
+    }
+  });
+}
+
 export function useProfitMargins() {
   return useQuery({
     queryKey: ['profit-margins'],
