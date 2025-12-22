@@ -13,10 +13,14 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
 import { useDamagedGoods, usePendingDamagedGoods, useRestoreDamagedGoods, useDestroyDamagedGoods, useRecordProductDamage, DAMAGE_TYPES } from '@/hooks/useDamagedGoods';
+import { useDailyDamageLoss, useMonthlyDamageLoss } from '@/hooks/useDamageFinancials';
 import { useProducts } from '@/hooks/useProducts';
 import { useProductBatches } from '@/hooks/useSales';
 import { format } from 'date-fns';
-import { RotateCcw, Trash2, Package, AlertTriangle, CheckCircle, Plus, Download } from 'lucide-react';
+import { RotateCcw, Trash2, Package, AlertTriangle, CheckCircle, Plus, Download, TrendingDown, IndianRupee } from 'lucide-react';
+
+const formatCurrency = (value: number) => `৳${value.toLocaleString('en-BD', { maximumFractionDigits: 2 })}`;
+
 
 function RecordDamageDialog({ onClose }: { onClose: () => void }) {
   const { data: products } = useProducts();
@@ -147,6 +151,8 @@ function RecordDamageDialog({ onClose }: { onClose: () => void }) {
 export default function DamagedGoodsPage() {
   const { data: allDamagedGoods, isLoading: allLoading } = useDamagedGoods();
   const { data: pendingGoods, isLoading: pendingLoading } = usePendingDamagedGoods();
+  const { data: dailyLoss } = useDailyDamageLoss();
+  const { data: monthlyLoss } = useMonthlyDamageLoss();
   const restoreMutation = useRestoreDamagedGoods();
   const destroyMutation = useDestroyDamagedGoods();
   const [destroyNotes, setDestroyNotes] = useState('');
@@ -330,8 +336,8 @@ export default function DamagedGoodsPage() {
           </div>
         </div>
 
-        {/* Summary Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        {/* Summary Cards with Financial Impact */}
+        <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
           <Card>
             <CardHeader className="flex flex-row items-center justify-between pb-2">
               <CardTitle className="text-sm font-medium">Pending Review</CardTitle>
@@ -360,6 +366,34 @@ export default function DamagedGoodsPage() {
             <CardContent>
               <div className="text-2xl font-bold">{destroyedCount}</div>
               <p className="text-xs text-muted-foreground">Permanently removed</p>
+            </CardContent>
+          </Card>
+          <Card className="bg-destructive/5 border-destructive/20">
+            <CardHeader className="flex flex-row items-center justify-between pb-2">
+              <CardTitle className="text-sm font-medium">Today's Loss</CardTitle>
+              <TrendingDown className="h-4 w-4 text-destructive" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold text-destructive">
+                {formatCurrency(dailyLoss?.total_loss_value || 0)}
+              </div>
+              <p className="text-xs text-muted-foreground">
+                {dailyLoss?.destroyed_count || 0} items destroyed
+              </p>
+            </CardContent>
+          </Card>
+          <Card className="bg-amber-500/5 border-amber-500/20">
+            <CardHeader className="flex flex-row items-center justify-between pb-2">
+              <CardTitle className="text-sm font-medium">Monthly Loss</CardTitle>
+              <IndianRupee className="h-4 w-4 text-amber-600" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold text-amber-600">
+                {formatCurrency(monthlyLoss?.total_loss_value || 0)}
+              </div>
+              <p className="text-xs text-muted-foreground">
+                {monthlyLoss?.destroyed_count || 0} items this month
+              </p>
             </CardContent>
           </Card>
         </div>

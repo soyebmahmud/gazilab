@@ -21,6 +21,7 @@ import { ExpenseReport, ExpenseCategoryReport } from '@/components/reports/Expen
 import { PartyListReport, PartyStatementReport, PartyProfitReport } from '@/components/reports/PartyReports';
 import { StockMovementReport, ItemWiseSalesReport, ItemWisePurchaseReport } from '@/components/reports/ItemReports';
 import { BankTransactionReport } from '@/components/reports/BankReports';
+import { DamageLossReportsTab } from '@/components/reports/DamageLossReports';
 
 export default function ReportsPage() {
   const [activeCategory, setActiveCategory] = useState('sales');
@@ -35,6 +36,7 @@ export default function ReportsPage() {
     { id: 'financial', label: 'আর্থিক রিপোর্ট', icon: DollarSign, labelEn: 'Financial Reports' },
     { id: 'party', label: 'পার্টি রিপোর্ট', icon: Users, labelEn: 'Party Reports' },
     { id: 'expense', label: 'খরচ রিপোর্ট', icon: Wallet, labelEn: 'Expense Reports' },
+    { id: 'damage', label: 'ক্ষতি রিপোর্ট', icon: AlertTriangle, labelEn: 'Damage/Loss Reports' },
   ];
 
   return (
@@ -185,6 +187,11 @@ export default function ReportsPage() {
               <ExpenseCategoryReport />
             </TabsContent>
           </Tabs>
+        )}
+
+        {/* Damage/Loss Reports */}
+        {activeCategory === 'damage' && (
+          <DamageLossReportsTab />
         )}
       </div>
     </MainLayout>

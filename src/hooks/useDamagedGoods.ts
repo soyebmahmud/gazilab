@@ -18,11 +18,15 @@ export interface DamagedGood {
 }
 
 export const DAMAGE_TYPES = [
-  { value: 'handling', label: 'Damaged during handling' },
-  { value: 'expired', label: 'Expired goods' },
-  { value: 'quality_rejected', label: 'Quality rejected' },
-  { value: 'manufacturing_wastage', label: 'Manufacturing wastage' },
-  { value: 'customer_return', label: 'Customer return' },
+  { value: 'handling', label: 'Handling Damage / হ্যান্ডলিং ক্ষতি' },
+  { value: 'expired', label: 'Expired / মেয়াদোত্তীর্ণ' },
+  { value: 'quality_rejected', label: 'Quality Rejected / মানসম্পন্ন নয়' },
+  { value: 'manufacturing_wastage', label: 'Manufacturing Wastage / উৎপাদন অপচয়' },
+  { value: 'manufacturing_defect', label: 'Manufacturing Defect / উৎপাদন ত্রুটি' },
+  { value: 'transport_damage', label: 'Transport Damage / পরিবহন ক্ষতি' },
+  { value: 'warehouse_damage', label: 'Warehouse Damage / গুদাম ক্ষতি' },
+  { value: 'customer_return', label: 'Customer Return / গ্রাহক ফেরত' },
+  { value: 'return_damaged', label: 'Return (Damaged) / ফেরত (ক্ষতিগ্রস্ত)' },
 ] as const;
 
 export function useDamagedGoods() {
