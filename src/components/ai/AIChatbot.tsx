@@ -7,6 +7,7 @@ import { useAIAssistant } from "@/hooks/useAIAssistant";
 import { Send, Bot, User, Loader2, Sparkles, Globe } from "lucide-react";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
+import { AIResponseFormatter } from "./AIResponseFormatter";
 
 interface Message {
   role: "user" | "assistant";
@@ -16,17 +17,48 @@ interface Message {
 
 export const AIChatbot = () => {
   const [language, setLanguage] = useState<"en" | "bn">("en");
-  const [messages, setMessages] = useState<Message[]>([
-    {
-      role: "assistant",
-      content: "Hello! I'm the **Gazi Inventory Assistant**. I have full access to your inventory data including:\n\n• **Raw Materials** - stock levels, categories, suppliers\n• **Packaging Materials** - all packaging inventory\n• **Finished Goods** - products, pricing, stock status\n• **Bill of Materials** - recipes and material requirements\n• **Production** - batch status, feasibility analysis\n• **Sales & Returns** - recent transactions\n\nAsk me anything! For example:\n- \"Do I have enough raw materials to produce 100 units of [Product]?\"\n- \"What materials are blocking production?\"\n- \"What's my current stock status?\"",
-      timestamp: new Date(),
-    },
-  ]);
+  const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState("");
   const { sendMessage, isLoading } = useAIAssistant();
   const scrollRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
+
+  // Set initial welcome message based on language
+  useEffect(() => {
+    const welcomeEn = `Hello! I'm the **Gazi Inventory Assistant**. I have full access to your complete inventory data:
+
+• **Raw Materials** - all stock levels, categories, suppliers
+• **Packaging Materials** - packaging inventory status
+• **Finished Goods** - products, pricing, stock levels
+• **Bill of Materials** - complete recipes & requirements
+• **Production Batches** - status & feasibility analysis
+• **Sales & Returns** - all transaction data
+
+Ask me anything! Examples:
+- "Do I have enough materials to produce 100 units of [Product]?"
+- "What materials are blocking production?"
+- "Show me items with low stock"`;
+
+    const welcomeBn = `স্বাগতম! আমি **গাজী ইনভেন্টরি অ্যাসিস্ট্যান্ট**। আমার কাছে সম্পূর্ণ ইনভেন্টরি তথ্যে অ্যাক্সেস আছে:
+
+• **কাঁচামাল** - সব স্টক লেভেল, ক্যাটাগরি, সরবরাহকারী
+• **প্যাকেজিং উপকরণ** - প্যাকেজিং ইনভেন্টরি স্ট্যাটাস
+• **তৈরি পণ্য** - পণ্য, মূল্য, স্টক লেভেল
+• **বিল অব ম্যাটেরিয়ালস** - সম্পূর্ণ রেসিপি ও প্রয়োজনীয়তা
+• **প্রোডাকশন ব্যাচ** - স্ট্যাটাস ও সম্ভাব্যতা বিশ্লেষণ
+• **বিক্রয় ও রিটার্ন** - সব লেনদেনের তথ্য
+
+যেকোনো প্রশ্ন করুন! উদাহরণ:
+- "[পণ্যের] ১০০ ইউনিট উৎপাদনের জন্য পর্যাপ্ত উপকরণ আছে?"
+- "কোন উপকরণ উৎপাদন আটকে দিচ্ছে?"
+- "স্টক কম আছে এমন আইটেম দেখান"`;
+
+    setMessages([{
+      role: "assistant",
+      content: language === "bn" ? welcomeBn : welcomeEn,
+      timestamp: new Date(),
+    }]);
+  }, [language]);
 
   useEffect(() => {
     if (scrollRef.current) {
@@ -41,10 +73,20 @@ export const AIChatbot = () => {
     setInput("");
     setMessages((prev) => [...prev, { role: "user", content: userMessage, timestamp: new Date() }]);
 
-    // Add language instruction to the prompt
+    // Add language instruction to ensure proper formatting and language
     const languageInstruction = language === "bn" 
-      ? "\n\nIMPORTANT: Please respond in Bengali (বাংলা) language. Use Bengali script for all text."
-      : "";
+      ? `\n\nIMPORTANT INSTRUCTIONS:
+1. Respond completely in Bengali (বাংলা) language using Bengali script
+2. Use clear bullet points and section headers
+3. Mark stock status clearly: "স্টক নেই" for OUT_OF_STOCK, "স্টক কম" for LOW_STOCK
+4. Keep explanations concise and business-professional
+5. Use ❌ for critical issues and ⚠️ for warnings`
+      : `\n\nIMPORTANT INSTRUCTIONS:
+1. Use clear section headers with ** markers
+2. Use bullet points (•) for lists
+3. Mark OUT_OF_STOCK items with ❌ and LOW_STOCK with ⚠️
+4. Keep each point concise and actionable
+5. Be specific with numbers and product names`;
     
     const response = await sendMessage("chatbot", userMessage + languageInstruction);
     if (response) {
@@ -61,79 +103,25 @@ export const AIChatbot = () => {
   };
 
   const suggestedQuestions = language === "bn" ? [
-    "আমার বর্তমান স্টক স্ট্যাটাস কি?",
-    "কোন পণ্যগুলোর স্টক কম?",
-    "আমি কি ১০০ ইউনিট উৎপাদন করতে পারি?",
-    "কোন উপকরণ উৎপাদন ব্লক করছে?",
-    "সাম্প্রতিক বিক্রয়ের সারসংক্ষেপ দেখান",
+    "বর্তমান স্টক স্ট্যাটাস দেখান",
+    "কোন পণ্যের স্টক কম?",
+    "উৎপাদন ব্লক করছে কোন উপকরণ?",
+    "সাম্প্রতিক বিক্রয়ের সারসংক্ষেপ",
+    "মেয়াদ শেষ হওয়ার কাছে কোন আইটেম?",
   ] : [
-    "What's my current stock status?",
+    "Show current stock status",
     "Which products are low on stock?",
-    "Can I produce 100 units of any product?",
     "What materials are blocking production?",
-    "Show me recent sales summary",
+    "Recent sales summary",
     "Any items expiring soon?",
   ];
 
-  const formatMessage = (content: string) => {
-    return content.split('\n').map((line, i) => {
-      // Check for stock status indicators and apply colors
-      let processedLine = line;
-      let lineClass = "";
-      
-      // OUT OF STOCK - RED
-      if (line.includes('OUT_OF_STOCK') || line.includes('Out of Stock') || line.includes('❌') || 
-          line.toLowerCase().includes('out of stock') || line.includes('স্টক নেই')) {
-        lineClass = "text-destructive font-medium bg-destructive/10 px-2 py-0.5 rounded";
-        processedLine = processedLine.replace(/OUT_OF_STOCK/g, '❌ Out of Stock');
-      }
-      // LOW STOCK - YELLOW/ORANGE
-      else if (line.includes('LOW_STOCK') || line.includes('Low Stock') || line.includes('⚠️') ||
-               line.toLowerCase().includes('low stock') || line.includes('কম স্টক')) {
-        lineClass = "text-yellow-600 dark:text-yellow-500 font-medium bg-yellow-500/10 px-2 py-0.5 rounded";
-        processedLine = processedLine.replace(/LOW_STOCK/g, '⚠️ Low Stock');
-      }
-      // OK / Sufficient - can add green optionally
-      else if (line.includes('status": "OK"') || line.includes('✅')) {
-        lineClass = "text-primary";
-      }
-      
-      // Bold text
-      const boldParsed = processedLine.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>');
-      
-      // Section headers (lines starting with ===)
-      if (line.trim().startsWith('===') || line.trim().startsWith('###')) {
-        return (
-          <div key={i} className="font-semibold text-primary mt-4 mb-2 border-b border-border pb-1">
-            {line.replace(/[=#]/g, '').trim()}
-          </div>
-        );
-      }
-      
-      // Bullet points
-      if (line.trim().startsWith('•') || line.trim().startsWith('-') || line.trim().startsWith('*')) {
-        return (
-          <div key={i} className={`ml-4 py-0.5 ${lineClass}`}>
-            <span dangerouslySetInnerHTML={{ __html: boldParsed }} />
-          </div>
-        );
-      }
-      
-      // Numbered items
-      if (/^\d+\./.test(line.trim())) {
-        return (
-          <div key={i} className={`ml-2 py-0.5 ${lineClass}`}>
-            <span dangerouslySetInnerHTML={{ __html: boldParsed }} />
-          </div>
-        );
-      }
-      
-      return (
-        <div key={i} className={lineClass}>
-          <span dangerouslySetInnerHTML={{ __html: boldParsed }} />
-        </div>
-      );
-    });
+  const labels = {
+    title: language === "bn" ? "গাজী ইনভেন্টরি অ্যাসিস্ট্যান্ট" : "Gazi Inventory Assistant",
+    subtitle: language === "bn" ? "এআই-চালিত ইনভেন্টরি ইনসাইটস" : "AI-powered inventory insights",
+    placeholder: language === "bn" ? "ইনভেন্টরি, উৎপাদন, বিক্রয় সম্পর্কে জিজ্ঞাসা করুন..." : "Ask about inventory, production, sales...",
+    tryAsking: language === "bn" ? "জিজ্ঞাসা করুন:" : "Try asking:",
+    thinking: language === "bn" ? "চিন্তা করছি..." : "Thinking...",
   };
 
   return (
@@ -145,8 +133,8 @@ export const AIChatbot = () => {
               <Sparkles className="h-5 w-5 text-primary-foreground" />
             </div>
             <div>
-              <h3 className="text-lg font-semibold">Gazi Inventory Assistant</h3>
-              <p className="text-xs text-muted-foreground font-normal">AI-powered inventory insights</p>
+              <h3 className="text-lg font-semibold">{labels.title}</h3>
+              <p className="text-xs text-muted-foreground font-normal">{labels.subtitle}</p>
             </div>
           </CardTitle>
           
@@ -188,8 +176,12 @@ export const AIChatbot = () => {
                       : "bg-muted/80 border border-border/50 rounded-bl-md"
                   }`}
                 >
-                  <div className="text-sm leading-relaxed whitespace-pre-wrap">
-                    {message.role === "assistant" ? formatMessage(message.content) : message.content}
+                  <div className="text-sm leading-relaxed">
+                    {message.role === "assistant" ? (
+                      <AIResponseFormatter content={message.content} />
+                    ) : (
+                      <span className="whitespace-pre-wrap">{message.content}</span>
+                    )}
                   </div>
                   <p className={`text-[10px] mt-2 ${message.role === "user" ? "text-primary-foreground/70" : "text-muted-foreground"}`}>
                     {message.timestamp.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
@@ -210,9 +202,7 @@ export const AIChatbot = () => {
                 <div className="bg-muted/80 border border-border/50 rounded-2xl rounded-bl-md px-4 py-3 shadow-sm">
                   <div className="flex items-center gap-2">
                     <Loader2 className="h-4 w-4 animate-spin text-primary" />
-                    <span className="text-sm text-muted-foreground">
-                      {language === "bn" ? "চিন্তা করছি..." : "Thinking..."}
-                    </span>
+                    <span className="text-sm text-muted-foreground">{labels.thinking}</span>
                     <span className="flex gap-1">
                       <span className="w-1.5 h-1.5 rounded-full bg-primary/60 animate-bounce" style={{ animationDelay: '0ms' }} />
                       <span className="w-1.5 h-1.5 rounded-full bg-primary/60 animate-bounce" style={{ animationDelay: '150ms' }} />
@@ -225,11 +215,9 @@ export const AIChatbot = () => {
           </div>
         </ScrollArea>
 
-        {messages.length === 1 && (
+        {messages.length <= 1 && (
           <div className="px-4 pb-3 border-t bg-muted/30">
-            <p className="text-xs text-muted-foreground mb-2 pt-3">
-              {language === "bn" ? "জিজ্ঞাসা করুন:" : "Try asking:"}
-            </p>
+            <p className="text-xs text-muted-foreground mb-2 pt-3">{labels.tryAsking}</p>
             <div className="flex flex-wrap gap-2">
               {suggestedQuestions.map((question, index) => (
                 <Button
@@ -253,7 +241,7 @@ export const AIChatbot = () => {
               value={input}
               onChange={(e) => setInput(e.target.value)}
               onKeyPress={handleKeyPress}
-              placeholder={language === "bn" ? "ইনভেন্টরি, উৎপাদন, বিক্রয় সম্পর্কে জিজ্ঞাসা করুন..." : "Ask about inventory, production, sales..."}
+              placeholder={labels.placeholder}
               disabled={isLoading}
               className="flex-1 h-11 rounded-full px-4 bg-muted/50 border-muted-foreground/20 focus:border-primary"
             />
