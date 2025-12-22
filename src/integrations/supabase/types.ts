@@ -177,26 +177,32 @@ export type Database = {
       bom_items: {
         Row: {
           bom_id: string
+          bom_layer: Database["public"]["Enums"]["bom_layer"] | null
           created_at: string
           id: string
           quantity_per_unit: number
           raw_material_id: string
+          scales_with: Database["public"]["Enums"]["packaging_unit"] | null
           wastage_percent: number
         }
         Insert: {
           bom_id: string
+          bom_layer?: Database["public"]["Enums"]["bom_layer"] | null
           created_at?: string
           id?: string
           quantity_per_unit?: number
           raw_material_id: string
+          scales_with?: Database["public"]["Enums"]["packaging_unit"] | null
           wastage_percent?: number
         }
         Update: {
           bom_id?: string
+          bom_layer?: Database["public"]["Enums"]["bom_layer"] | null
           created_at?: string
           id?: string
           quantity_per_unit?: number
           raw_material_id?: string
+          scales_with?: Database["public"]["Enums"]["packaging_unit"] | null
           wastage_percent?: number
         }
         Relationships: [
@@ -402,6 +408,77 @@ export type Database = {
           },
         ]
       }
+      product_packaging_configs: {
+        Row: {
+          config_name: string
+          created_at: string
+          id: string
+          is_active: boolean
+          is_default: boolean
+          notes: string | null
+          primary_pack_type: Database["public"]["Enums"]["packaging_unit"]
+          primary_packs_per_secondary: number | null
+          product_id: string
+          secondary_pack_type:
+            | Database["public"]["Enums"]["packaging_unit"]
+            | null
+          secondary_packs_per_tertiary: number | null
+          tertiary_pack_type:
+            | Database["public"]["Enums"]["packaging_unit"]
+            | null
+          units_per_primary_pack: number
+          updated_at: string
+        }
+        Insert: {
+          config_name?: string
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          is_default?: boolean
+          notes?: string | null
+          primary_pack_type?: Database["public"]["Enums"]["packaging_unit"]
+          primary_packs_per_secondary?: number | null
+          product_id: string
+          secondary_pack_type?:
+            | Database["public"]["Enums"]["packaging_unit"]
+            | null
+          secondary_packs_per_tertiary?: number | null
+          tertiary_pack_type?:
+            | Database["public"]["Enums"]["packaging_unit"]
+            | null
+          units_per_primary_pack?: number
+          updated_at?: string
+        }
+        Update: {
+          config_name?: string
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          is_default?: boolean
+          notes?: string | null
+          primary_pack_type?: Database["public"]["Enums"]["packaging_unit"]
+          primary_packs_per_secondary?: number | null
+          product_id?: string
+          secondary_pack_type?:
+            | Database["public"]["Enums"]["packaging_unit"]
+            | null
+          secondary_packs_per_tertiary?: number | null
+          tertiary_pack_type?:
+            | Database["public"]["Enums"]["packaging_unit"]
+            | null
+          units_per_primary_pack?: number
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "product_packaging_configs_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "products"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       production_batches: {
         Row: {
           batch_number: string
@@ -411,6 +488,7 @@ export type Database = {
           id: string
           manufacturing_date: string | null
           notes: string | null
+          packaging_config_id: string | null
           product_id: string
           quantity_planned: number
           quantity_produced: number
@@ -428,6 +506,7 @@ export type Database = {
           id?: string
           manufacturing_date?: string | null
           notes?: string | null
+          packaging_config_id?: string | null
           product_id: string
           quantity_planned: number
           quantity_produced?: number
@@ -445,6 +524,7 @@ export type Database = {
           id?: string
           manufacturing_date?: string | null
           notes?: string | null
+          packaging_config_id?: string | null
           product_id?: string
           quantity_planned?: number
           quantity_produced?: number
@@ -460,6 +540,13 @@ export type Database = {
             columns: ["bom_id"]
             isOneToOne: false
             referencedRelation: "bom"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "production_batches_packaging_config_id_fkey"
+            columns: ["packaging_config_id"]
+            isOneToOne: false
+            referencedRelation: "product_packaging_configs"
             referencedColumns: ["id"]
           },
           {
@@ -525,11 +612,13 @@ export type Database = {
       }
       products: {
         Row: {
+          batch_size: number | null
           category: Database["public"]["Enums"]["product_category"]
           cost_price: number
           created_at: string
           current_stock: number
           description: string | null
+          dosage_form: Database["public"]["Enums"]["dosage_form"] | null
           expiry_date: string | null
           id: string
           is_active: boolean
@@ -539,18 +628,22 @@ export type Database = {
           rack: string | null
           selling_price: number
           shelf: string | null
+          shelf_life_months: number | null
           sku: string
+          strength: string | null
           unit: Database["public"]["Enums"]["unit_type"]
           units_per_pack: number
           updated_at: string
           warehouse: string | null
         }
         Insert: {
+          batch_size?: number | null
           category?: Database["public"]["Enums"]["product_category"]
           cost_price?: number
           created_at?: string
           current_stock?: number
           description?: string | null
+          dosage_form?: Database["public"]["Enums"]["dosage_form"] | null
           expiry_date?: string | null
           id?: string
           is_active?: boolean
@@ -560,18 +653,22 @@ export type Database = {
           rack?: string | null
           selling_price?: number
           shelf?: string | null
+          shelf_life_months?: number | null
           sku: string
+          strength?: string | null
           unit?: Database["public"]["Enums"]["unit_type"]
           units_per_pack?: number
           updated_at?: string
           warehouse?: string | null
         }
         Update: {
+          batch_size?: number | null
           category?: Database["public"]["Enums"]["product_category"]
           cost_price?: number
           created_at?: string
           current_stock?: number
           description?: string | null
+          dosage_form?: Database["public"]["Enums"]["dosage_form"] | null
           expiry_date?: string | null
           id?: string
           is_active?: boolean
@@ -581,7 +678,9 @@ export type Database = {
           rack?: string | null
           selling_price?: number
           shelf?: string | null
+          shelf_life_months?: number | null
           sku?: string
+          strength?: string | null
           unit?: Database["public"]["Enums"]["unit_type"]
           units_per_pack?: number
           updated_at?: string
@@ -1262,6 +1361,19 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      calculate_packaging_units: {
+        Args: {
+          p_packaging_config_id: string
+          p_quantity: number
+          p_unit_type: string
+        }
+        Returns: {
+          primary_packs: number
+          secondary_packs: number
+          tertiary_packs: number
+          total_units: number
+        }[]
+      }
       can_delete_material: {
         Args: { material_id: string }
         Returns: {
@@ -1325,6 +1437,27 @@ export type Database = {
           product_name: string
           product_sku: string
           quantity_available: number
+        }[]
+      }
+      get_hierarchical_bom: {
+        Args: {
+          p_packaging_config_id: string
+          p_product_id: string
+          p_production_quantity: number
+        }
+        Returns: {
+          base_quantity_per_unit: number
+          bom_item_id: string
+          bom_layer: Database["public"]["Enums"]["bom_layer"]
+          calculated_quantity: number
+          cost_per_unit: number
+          material_name: string
+          material_sku: string
+          material_unit: string
+          raw_material_id: string
+          scales_with: Database["public"]["Enums"]["packaging_unit"]
+          total_cost: number
+          wastage_percent: number
         }[]
       }
       get_material_usage: {
@@ -1413,7 +1546,36 @@ export type Database = {
     }
     Enums: {
       app_role: "admin" | "user" | "accounts" | "it" | "md"
+      bom_layer:
+        | "api_excipient"
+        | "primary_packaging"
+        | "secondary_packaging"
+        | "tertiary_packaging"
+      dosage_form:
+        | "tablet"
+        | "capsule"
+        | "syrup"
+        | "suspension"
+        | "injection"
+        | "cream"
+        | "ointment"
+        | "powder"
+        | "drops"
+        | "vial"
+        | "other"
       material_category: "herbs" | "chemicals" | "packaging"
+      packaging_unit:
+        | "strip"
+        | "blister"
+        | "bottle"
+        | "vial"
+        | "ampoule"
+        | "tube"
+        | "jar"
+        | "sachet"
+        | "box"
+        | "carton"
+        | "shipper"
       product_category:
         | "capsules"
         | "tablets"
@@ -1563,7 +1725,39 @@ export const Constants = {
   public: {
     Enums: {
       app_role: ["admin", "user", "accounts", "it", "md"],
+      bom_layer: [
+        "api_excipient",
+        "primary_packaging",
+        "secondary_packaging",
+        "tertiary_packaging",
+      ],
+      dosage_form: [
+        "tablet",
+        "capsule",
+        "syrup",
+        "suspension",
+        "injection",
+        "cream",
+        "ointment",
+        "powder",
+        "drops",
+        "vial",
+        "other",
+      ],
       material_category: ["herbs", "chemicals", "packaging"],
+      packaging_unit: [
+        "strip",
+        "blister",
+        "bottle",
+        "vial",
+        "ampoule",
+        "tube",
+        "jar",
+        "sachet",
+        "box",
+        "carton",
+        "shipper",
+      ],
       product_category: [
         "capsules",
         "tablets",
