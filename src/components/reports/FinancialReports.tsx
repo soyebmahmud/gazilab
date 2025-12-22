@@ -105,18 +105,38 @@ export function ProfitLossReport() {
 
             {/* P&L Breakdown */}
             <div className="rounded-lg border p-6 space-y-4">
+              {/* Revenue Section */}
               <div className="flex justify-between items-center py-3 border-b">
                 <span className="font-medium flex items-center gap-2">
                   <ArrowUpRight className="h-4 w-4 text-primary" />
-                  মোট বিক্রয় (Revenue)
+                  মোট বিক্রয় (Gross Sales)
                 </span>
-                <span className="text-xl font-bold text-primary">{formatCurrency(plData.total_sales)}</span>
+                <span className="text-xl font-bold text-primary">{formatCurrency(plData.gross_sales || plData.total_sales)}</span>
               </div>
               
               <div className="flex justify-between items-center py-3 border-b pl-6">
                 <span className="text-muted-foreground">বিক্রয় সংখ্যা</span>
                 <span>{plData.sales_count} টি</span>
               </div>
+
+              {/* Returns - now shown properly as a deduction from revenue */}
+              {plData.returns_count > 0 && (
+                <div className="flex justify-between items-center py-3 border-b pl-6">
+                  <span className="text-destructive flex items-center gap-2">
+                    <ArrowDownRight className="h-4 w-4" />
+                    বিক্রয় রিটার্ন ({plData.returns_count} টি)
+                  </span>
+                  <span className="text-destructive">({formatCurrency(plData.returns_value)})</span>
+                </div>
+              )}
+
+              {/* Net Revenue after returns */}
+              {plData.returns_count > 0 && (
+                <div className="flex justify-between items-center py-3 border-b bg-muted/20 px-4 -mx-4">
+                  <span className="font-medium">নীট বিক্রয় (Net Revenue)</span>
+                  <span className="text-lg font-bold text-primary">{formatCurrency(plData.total_sales)}</span>
+                </div>
+              )}
 
               <div className="flex justify-between items-center py-3 border-b">
                 <span className="font-medium flex items-center gap-2">
@@ -127,7 +147,7 @@ export function ProfitLossReport() {
               </div>
 
               <div className="flex justify-between items-center py-3 border-b bg-muted/30 px-4 -mx-4">
-                <span className="font-bold">গ্রস প্রফিট</span>
+                <span className="font-bold">গ্রস প্রফিট (Gross Profit)</span>
                 <span className={`text-xl font-bold ${plData.gross_profit >= 0 ? 'text-primary' : 'text-destructive'}`}>
                   {formatCurrency(plData.gross_profit)}
                 </span>
@@ -136,7 +156,7 @@ export function ProfitLossReport() {
               <div className="flex justify-between items-center py-3 border-b">
                 <span className="font-medium flex items-center gap-2">
                   <ArrowDownRight className="h-4 w-4 text-destructive" />
-                  খরচ (Expenses)
+                  খরচ (Operating Expenses)
                 </span>
                 <span className="text-lg text-destructive">({formatCurrency(plData.total_expenses)})</span>
               </div>
@@ -144,23 +164,24 @@ export function ProfitLossReport() {
               <div className="flex justify-between items-center py-3 border-b">
                 <span className="font-medium flex items-center gap-2">
                   <ArrowDownRight className="h-4 w-4 text-destructive" />
-                  ক্ষতি/অপচয় (Damage/Wastage)
+                  ক্ষতি/অপচয় (Damage/Wastage Loss)
                 </span>
                 <span className="text-lg text-destructive">({formatCurrency(plData.total_damage_loss)})</span>
               </div>
 
-              {plData.returns_count > 0 && (
-                <div className="flex justify-between items-center py-3 border-b pl-6">
-                  <span className="text-muted-foreground">রিটার্ন ({plData.returns_count} টি)</span>
-                  <span className="text-destructive">{formatCurrency(plData.returns_value)}</span>
-                </div>
-              )}
-
               <div className={`flex justify-between items-center py-4 px-4 -mx-4 ${plData.net_profit >= 0 ? 'bg-primary/10' : 'bg-destructive/10'}`}>
-                <span className="text-lg font-bold">নিট {plData.net_profit >= 0 ? 'লাভ' : 'ক্ষতি'}</span>
+                <span className="text-lg font-bold">নিট {plData.net_profit >= 0 ? 'লাভ' : 'ক্ষতি'} (Net Profit)</span>
                 <span className={`text-2xl font-bold ${plData.net_profit >= 0 ? 'text-primary' : 'text-destructive'}`}>
                   {formatCurrency(plData.net_profit)}
                 </span>
+              </div>
+
+              {/* Formula Summary */}
+              <div className="mt-4 p-4 bg-muted/20 rounded-lg text-sm text-muted-foreground">
+                <p className="font-medium mb-2">গণনা সূত্র (Calculation Formula):</p>
+                <p>নীট বিক্রয় = মোট বিক্রয় − রিটার্ন</p>
+                <p>গ্রস প্রফিট = নীট বিক্রয় − COGS</p>
+                <p>নিট লাভ = গ্রস প্রফিট − খরচ − ক্ষতি/অপচয়</p>
               </div>
             </div>
           </div>
