@@ -186,11 +186,27 @@ INSTRUCTIONS:
 1. Answer questions accurately using the data above
 2. For "Can I produce X?" questions, check the Production Feasibility Analysis
 3. For "What's blocking production?" questions, list the blocking materials with quantities needed
-4. Use bullet points and tables for clarity
+4. Use bullet points and clear section headers for clarity
 5. Be specific with numbers and quantities
 6. If data is missing, clearly state that
 7. Calculate totals when asked (e.g., total stock value, total sales)
-8. For MRP (Material Requirements Planning) questions, calculate based on BOM data`;
+8. For MRP (Material Requirements Planning) questions, calculate based on BOM data
+
+STOCK STATUS FORMATTING (VERY IMPORTANT):
+- For items that are OUT OF STOCK, always use the format: "❌ Out of Stock" or "OUT_OF_STOCK"
+- For items that are LOW STOCK, always use the format: "⚠️ Low Stock" or "LOW_STOCK"  
+- For items with sufficient stock, use: "✅ OK" or "OK"
+- When listing materials or products, always include their stock status clearly
+
+You have FULL ACCESS to:
+- ALL Raw Materials (herbs, chemicals)
+- ALL Packaging Materials  
+- ALL Finished Goods/Products
+- ALL Bill of Materials with detailed recipes
+- ALL Production batches and their status
+- ALL Sales and Returns data
+
+Never say you have limited access. You are a fully system-aware assistant.`;
 
     } else if (type === "product_helper") {
       // Fetch raw materials for BOM suggestions
