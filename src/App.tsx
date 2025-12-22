@@ -21,6 +21,8 @@ import BackupRestorePage from "./pages/BackupRestorePage";
 import PurchaseOrdersPage from "./pages/PurchaseOrdersPage";
 import ExpiryAlertsPage from "./pages/ExpiryAlertsPage";
 import AIHubPage from "./pages/AIHubPage";
+import BankAccountsPage from "./pages/BankAccountsPage";
+import ExpensesPage from "./pages/ExpensesPage";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -47,6 +49,8 @@ const App = () => (
           <Route path="/damaged-goods" element={<ProtectedRoute><DamagedGoodsPage /></ProtectedRoute>} />
           <Route path="/expiry-alerts" element={<ProtectedRoute><ExpiryAlertsPage /></ProtectedRoute>} />
           <Route path="/reports" element={<ProtectedRoute><ReportsPage /></ProtectedRoute>} />
+          <Route path="/bank-accounts" element={<ProtectedRoute><BankAccountsPage /></ProtectedRoute>} />
+          <Route path="/expenses" element={<ProtectedRoute><ExpensesPage /></ProtectedRoute>} />
           <Route path="/backup" element={<ProtectedRoute><BackupRestorePage /></ProtectedRoute>} />
           <Route path="/ai-hub" element={<ProtectedRoute><AIHubPage /></ProtectedRoute>} />
           <Route path="*" element={<NotFound />} />
