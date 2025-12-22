@@ -346,14 +346,14 @@ export default function BankAccountsPage() {
                 <div className="flex justify-between items-center">
                   <CardTitle>ট্রানজ্যাকশন হিস্টোরি</CardTitle>
                   <Select
-                    value={selectedAccountId}
-                    onValueChange={setSelectedAccountId}
+                    value={selectedAccountId || 'all'}
+                    onValueChange={(v) => setSelectedAccountId(v === 'all' ? '' : v)}
                   >
                     <SelectTrigger className="w-64">
                       <SelectValue placeholder="সব অ্যাকাউন্ট" />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="">সব অ্যাকাউন্ট</SelectItem>
+                      <SelectItem value="all">সব অ্যাকাউন্ট</SelectItem>
                       {accounts?.map((acc) => (
                         <SelectItem key={acc.id} value={acc.id}>
                           {acc.account_name}
