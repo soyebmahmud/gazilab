@@ -12,6 +12,7 @@ import { Separator } from '@/components/ui/separator';
 import { useSales, useCreateSale, useProductBatches } from '@/hooks/useSales';
 import { useSalePayments, useAddPayment, useDeletePayment, PAYMENT_METHODS } from '@/hooks/useSalePayments';
 import { useProcessSaleReturn, RETURN_REASONS } from '@/hooks/useSalesReturns';
+import { useDefaultPackagingConfig, calculatePackagingBreakdown } from '@/hooks/usePackagingConfigs';
 import { useProducts } from '@/hooks/useProducts';
 import { useCustomers } from '@/hooks/useCustomers';
 import { Plus, X, FileText, CreditCard, Package, Printer, Trash2, Eye, RotateCcw, AlertCircle } from 'lucide-react';
@@ -20,10 +21,13 @@ import { format } from 'date-fns';
 import { InvoicePrint } from '@/components/InvoicePrint';
 import { useReactToPrint } from 'react-to-print';
 
+type SaleUnitType = 'units' | 'primary' | 'secondary' | 'tertiary';
+
 interface SaleItemForm {
   product_id: string;
   production_batch_id?: string;
   quantity: number;
+  unit_type: SaleUnitType;
   unit_price: number;
   discount_percent: number;
 }
@@ -60,6 +64,22 @@ function BatchSelector({ productId, value, onChange }: { productId: string; valu
   );
 }
 
+// Component to show unit conversion helper
+function UnitConversionHelper({ productId, quantity, unitType }: { productId: string; quantity: number; unitType: SaleUnitType }) {
+  const { data: config } = useDefaultPackagingConfig(productId);
+  
+  if (!config || unitType === 'units') return null;
+  
+  const breakdown = calculatePackagingBreakdown(config, quantity, unitType);
+  
+  return (
+    <div className="text-xs text-muted-foreground mt-1">
+      = {breakdown.total_units} units
+      {breakdown.primary_packs > 0 && ` (${breakdown.primary_packs} ${config.primary_pack_type})`}
+    </div>
+  );
+}
+
 function CreateSaleDialog({ onClose }: { onClose: () => void }) {
   const { data: products } = useProducts();
   const { data: customers } = useCustomers();
@@ -74,7 +94,7 @@ function CreateSaleDialog({ onClose }: { onClose: () => void }) {
   const [items, setItems] = useState<SaleItemForm[]>([]);
 
   const addItem = () => {
-    setItems([...items, { product_id: '', quantity: 1, unit_price: 0, discount_percent: 0 }]);
+    setItems([...items, { product_id: '', quantity: 1, unit_type: 'units', unit_price: 0, discount_percent: 0 }]);
   };
 
   const removeItem = (index: number) => {
@@ -172,63 +192,80 @@ function CreateSaleDialog({ onClose }: { onClose: () => void }) {
           const lineTotal = item.quantity * item.unit_price * (1 - item.discount_percent / 100);
           
           return (
-            <div key={index} className="grid grid-cols-12 gap-2 items-end p-3 bg-accent/50 rounded-lg">
-              <div className="col-span-3">
-                <Label className="text-xs">Product</Label>
-                <Select value={item.product_id} onValueChange={(v) => updateItem(index, 'product_id', v)}>
-                  <SelectTrigger><SelectValue placeholder="Select" /></SelectTrigger>
-                  <SelectContent>
-                    {products?.filter(p => p.current_stock > 0).map(p => (
-                      <SelectItem key={p.id} value={p.id}>
-                        <div className="flex items-center gap-2">
-                          <span>{p.name}</span>
-                          <Badge variant="outline" className="text-xs">{p.current_stock} in stock</Badge>
-                        </div>
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+            <div key={index} className="p-3 bg-accent/50 rounded-lg space-y-2">
+              <div className="grid grid-cols-12 gap-2 items-end">
+                <div className="col-span-3">
+                  <Label className="text-xs">Product</Label>
+                  <Select value={item.product_id} onValueChange={(v) => updateItem(index, 'product_id', v)}>
+                    <SelectTrigger><SelectValue placeholder="Select" /></SelectTrigger>
+                    <SelectContent>
+                      {products?.filter(p => p.current_stock > 0).map(p => (
+                        <SelectItem key={p.id} value={p.id}>
+                          <div className="flex items-center gap-2">
+                            <span>{p.name}</span>
+                            <Badge variant="outline" className="text-xs">{p.current_stock} in stock</Badge>
+                          </div>
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="col-span-2">
+                  <Label className="text-xs">Batch</Label>
+                  <BatchSelector 
+                    productId={item.product_id} 
+                    value={item.production_batch_id}
+                    onChange={(v) => updateItem(index, 'production_batch_id', v)}
+                  />
+                </div>
+                <div className="col-span-2">
+                  <Label className="text-xs">Unit Type</Label>
+                  <Select value={item.unit_type} onValueChange={(v) => updateItem(index, 'unit_type', v as SaleUnitType)}>
+                    <SelectTrigger><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="units">Units (pcs)</SelectItem>
+                      <SelectItem value="primary">Primary (Strip/Bottle)</SelectItem>
+                      <SelectItem value="secondary">Secondary (Box)</SelectItem>
+                      <SelectItem value="tertiary">Tertiary (Carton)</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="col-span-1">
+                  <Label className="text-xs">Qty</Label>
+                  <Input 
+                    type="number" 
+                    min="1"
+                    value={item.quantity} 
+                    onChange={(e) => updateItem(index, 'quantity', parseFloat(e.target.value) || 0)}
+                  />
+                  {item.product_id && item.unit_type !== 'units' && (
+                    <UnitConversionHelper productId={item.product_id} quantity={item.quantity} unitType={item.unit_type} />
+                  )}
+                </div>
+                <div className="col-span-2">
+                  <Label className="text-xs">Price</Label>
+                  <Input 
+                    type="number" 
+                    step="0.01"
+                    value={item.unit_price} 
+                    onChange={(e) => updateItem(index, 'unit_price', parseFloat(e.target.value) || 0)}
+                  />
+                </div>
+                <div className="col-span-1">
+                  <Label className="text-xs">Disc %</Label>
+                  <Input 
+                    type="number" 
+                    min="0" max="100"
+                    value={item.discount_percent} 
+                    onChange={(e) => updateItem(index, 'discount_percent', parseFloat(e.target.value) || 0)}
+                  />
+                </div>
+                <div className="col-span-1 text-right">
+                  <Label className="text-xs">Total</Label>
+                  <p className="font-medium py-2">৳{lineTotal.toFixed(2)}</p>
+                </div>
               </div>
-              <div className="col-span-3">
-                <Label className="text-xs">Batch</Label>
-                <BatchSelector 
-                  productId={item.product_id} 
-                  value={item.production_batch_id}
-                  onChange={(v) => updateItem(index, 'production_batch_id', v)}
-                />
-              </div>
-              <div className="col-span-1">
-                <Label className="text-xs">Qty</Label>
-                <Input 
-                  type="number" 
-                  min="1"
-                  value={item.quantity} 
-                  onChange={(e) => updateItem(index, 'quantity', parseFloat(e.target.value) || 0)}
-                />
-              </div>
-              <div className="col-span-2">
-                <Label className="text-xs">Price</Label>
-                <Input 
-                  type="number" 
-                  step="0.01"
-                  value={item.unit_price} 
-                  onChange={(e) => updateItem(index, 'unit_price', parseFloat(e.target.value) || 0)}
-                />
-              </div>
-              <div className="col-span-1">
-                <Label className="text-xs">Disc %</Label>
-                <Input 
-                  type="number" 
-                  min="0" max="100"
-                  value={item.discount_percent} 
-                  onChange={(e) => updateItem(index, 'discount_percent', parseFloat(e.target.value) || 0)}
-                />
-              </div>
-              <div className="col-span-1 text-right">
-                <Label className="text-xs">Total</Label>
-                <p className="font-medium py-2">৳{lineTotal.toFixed(2)}</p>
-              </div>
-              <div className="col-span-1">
+              <div>
                 <Button type="button" size="icon" variant="ghost" onClick={() => removeItem(index)}>
                   <X className="h-4 w-4" />
                 </Button>
