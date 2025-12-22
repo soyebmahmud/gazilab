@@ -135,7 +135,7 @@ export function useCreateBOM() {
       
       if (bomError) throw bomError;
       
-      // Add BOM items
+      // Add BOM items with layer support
       if (items.length > 0) {
         const { error: itemsError } = await supabase
           .from('bom_items')
@@ -144,7 +144,8 @@ export function useCreateBOM() {
               bom_id: newBom.id,
               raw_material_id: item.raw_material_id,
               quantity_per_unit: item.quantity_per_unit,
-              wastage_percent: item.wastage_percent
+              wastage_percent: item.wastage_percent,
+              bom_layer: (item as any).bom_layer || 'api_excipient',
             }))
           );
         
