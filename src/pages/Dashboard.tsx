@@ -1,10 +1,12 @@
+import { useState } from 'react';
 import { MainLayout } from '@/components/layout/MainLayout';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { useDashboardStats, useInventoryInsights, useManufacturingInsights, useAlerts, useSalesTrends, useProductionTrends, useWeeklySales, useInventoryTrends, useTopSellingProducts, useProfitMargins, useMaterialConsumption, useSalesByCustomer } from '@/hooks/useDashboard';
+import { useDashboardStats, useInventoryInsights, useManufacturingInsights, useAlerts, useSalesTrends, useProductionTrends, useWeeklySales, useInventoryTrends, useTopSellingProducts, useProfitMargins, useMaterialConsumption, useSalesByCustomer, useTodayProfit, useMonthProfit, useProfitTrends } from '@/hooks/useDashboard';
 import { useProductionFeasibility } from '@/hooks/useProductionFeasibility';
-import { Package, Leaf, DollarSign, Factory, AlertTriangle, TrendingUp, Boxes, Ban, ShoppingCart, Activity, Calendar, Warehouse, Trophy, Percent, FlaskConical, Users, CheckCircle, XCircle } from 'lucide-react';
-import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip, BarChart, Bar, XAxis, YAxis, CartesianGrid, LineChart, Line, Legend } from 'recharts';
+import { Package, Leaf, DollarSign, Factory, AlertTriangle, TrendingUp, Boxes, Ban, ShoppingCart, Activity, Calendar, Warehouse, Trophy, Percent, FlaskConical, Users, CheckCircle, XCircle, TrendingDown, Wallet } from 'lucide-react';
+import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip, BarChart, Bar, XAxis, YAxis, CartesianGrid, LineChart, Line, Legend, Area, AreaChart, ComposedChart } from 'recharts';
 import { Badge } from '@/components/ui/badge';
+import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 
 const COLORS = ['hsl(var(--chart-1))', 'hsl(var(--chart-2))', 'hsl(var(--chart-3))', 'hsl(var(--chart-4))', 'hsl(var(--chart-5))'];
 
@@ -34,6 +36,8 @@ function StockStatusBadge({ current, min }: { current: number; min: number }) {
 }
 
 export default function Dashboard() {
+  const [profitPeriod, setProfitPeriod] = useState<'daily' | 'monthly' | 'yearly'>('daily');
+  
   const { data: stats, isLoading: statsLoading } = useDashboardStats();
   const { data: inventory } = useInventoryInsights();
   const { data: manufacturing } = useManufacturingInsights();
@@ -47,6 +51,9 @@ export default function Dashboard() {
   const { data: materialConsumption } = useMaterialConsumption();
   const { data: salesByCustomer } = useSalesByCustomer();
   const { data: feasibility } = useProductionFeasibility();
+  const { data: todayProfit } = useTodayProfit();
+  const { data: monthProfit } = useMonthProfit();
+  const { data: profitTrends } = useProfitTrends(profitPeriod);
 
   if (statsLoading) {
     return (
@@ -75,6 +82,173 @@ export default function Dashboard() {
           <StatCard title="Total Receivable" value={formatCurrency(stats?.totalReceivable || 0)} icon={DollarSign} />
           <StatCard title="Inventory Value" value={formatCurrency(stats?.inventoryValue || 0)} icon={Boxes} />
         </div>
+
+        {/* Net Profit Cards */}
+        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+          {/* Today's Profit */}
+          <Card className={`${(todayProfit?.netProfit || 0) >= 0 ? 'border-primary/30 bg-primary/5' : 'border-destructive/30 bg-destructive/5'}`}>
+            <CardContent className="p-6">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm font-medium text-muted-foreground">আজকের নেট লাভ</p>
+                  <p className={`text-2xl font-bold ${(todayProfit?.netProfit || 0) >= 0 ? 'text-primary' : 'text-destructive'}`}>
+                    {formatCurrency(todayProfit?.netProfit || 0)}
+                  </p>
+                  <div className="text-xs text-muted-foreground mt-1 space-y-0.5">
+                    <p>বিক্রয়: {formatCurrency(todayProfit?.totalSales || 0)}</p>
+                    <p>খরচ: {formatCurrency(todayProfit?.totalExpenses || 0)}</p>
+                  </div>
+                </div>
+                <div className={`rounded-full p-3 ${(todayProfit?.netProfit || 0) >= 0 ? 'bg-primary/10' : 'bg-destructive/10'}`}>
+                  {(todayProfit?.netProfit || 0) >= 0 ? (
+                    <TrendingUp className="h-6 w-6 text-primary" />
+                  ) : (
+                    <TrendingDown className="h-6 w-6 text-destructive" />
+                  )}
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Today's Sales */}
+          <Card>
+            <CardContent className="p-6">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm font-medium text-muted-foreground">আজকের বিক্রয়</p>
+                  <p className="text-2xl font-bold text-foreground">{formatCurrency(todayProfit?.totalSales || 0)}</p>
+                  <p className="text-xs text-muted-foreground mt-1">COGS: {formatCurrency(todayProfit?.cogs || 0)}</p>
+                </div>
+                <div className="rounded-full bg-chart-1/10 p-3">
+                  <ShoppingCart className="h-6 w-6 text-chart-1" />
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Today's Expenses */}
+          <Card>
+            <CardContent className="p-6">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm font-medium text-muted-foreground">আজকের খরচ</p>
+                  <p className="text-2xl font-bold text-foreground">{formatCurrency(todayProfit?.totalExpenses || 0)}</p>
+                  <p className="text-xs text-muted-foreground mt-1">Gross Profit: {formatCurrency(todayProfit?.grossProfit || 0)}</p>
+                </div>
+                <div className="rounded-full bg-destructive/10 p-3">
+                  <Wallet className="h-6 w-6 text-destructive" />
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* This Month's Profit */}
+          <Card className={`${(monthProfit?.netProfit || 0) >= 0 ? 'border-chart-2/30 bg-chart-2/5' : 'border-destructive/30 bg-destructive/5'}`}>
+            <CardContent className="p-6">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm font-medium text-muted-foreground">এই মাসের নেট লাভ</p>
+                  <p className={`text-2xl font-bold ${(monthProfit?.netProfit || 0) >= 0 ? 'text-chart-2' : 'text-destructive'}`}>
+                    {formatCurrency(monthProfit?.netProfit || 0)}
+                  </p>
+                  <div className="text-xs text-muted-foreground mt-1 space-y-0.5">
+                    <p>বিক্রয়: {formatCurrency(monthProfit?.totalSales || 0)}</p>
+                    <p>খরচ: {formatCurrency(monthProfit?.totalExpenses || 0)}</p>
+                  </div>
+                </div>
+                <div className={`rounded-full p-3 ${(monthProfit?.netProfit || 0) >= 0 ? 'bg-chart-2/10' : 'bg-destructive/10'}`}>
+                  <Calendar className="h-6 w-6 text-chart-2" />
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+
+        {/* Profit Trend Chart */}
+        <Card>
+          <CardHeader className="pb-2">
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+              <CardTitle className="flex items-center gap-2">
+                <TrendingUp className="h-5 w-5" />
+                লাভ-ক্ষতি ট্রেন্ড
+              </CardTitle>
+              <Tabs value={profitPeriod} onValueChange={(v) => setProfitPeriod(v as 'daily' | 'monthly' | 'yearly')}>
+                <TabsList>
+                  <TabsTrigger value="daily">দৈনিক</TabsTrigger>
+                  <TabsTrigger value="monthly">মাসিক</TabsTrigger>
+                  <TabsTrigger value="yearly">বাৎসরিক</TabsTrigger>
+                </TabsList>
+              </Tabs>
+            </div>
+          </CardHeader>
+          <CardContent>
+            {profitTrends && profitTrends.length > 0 ? (
+              <div className="h-80">
+                <ResponsiveContainer width="100%" height="100%">
+                  <ComposedChart data={profitTrends}>
+                    <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
+                    <XAxis 
+                      dataKey="date" 
+                      className="text-xs" 
+                      tick={{ fill: 'hsl(var(--muted-foreground))' }}
+                      interval={profitPeriod === 'daily' ? 4 : 0}
+                    />
+                    <YAxis 
+                      className="text-xs" 
+                      tick={{ fill: 'hsl(var(--muted-foreground))' }} 
+                      tickFormatter={(value) => `৳${(value / 1000).toFixed(0)}k`}
+                    />
+                    <Tooltip 
+                      formatter={(value: number, name: string) => {
+                        const labels: Record<string, string> = {
+                          sales: 'বিক্রয়',
+                          expenses: 'খরচ',
+                          cogs: 'পণ্য খরচ',
+                          grossProfit: 'গ্রস লাভ',
+                          netProfit: 'নেট লাভ'
+                        };
+                        return [`৳${value.toLocaleString()}`, labels[name] || name];
+                      }}
+                      contentStyle={{ backgroundColor: 'hsl(var(--background))', border: '1px solid hsl(var(--border))' }}
+                    />
+                    <Legend 
+                      formatter={(value) => {
+                        const labels: Record<string, string> = {
+                          sales: 'বিক্রয়',
+                          expenses: 'খরচ',
+                          netProfit: 'নেট লাভ'
+                        };
+                        return labels[value] || value;
+                      }}
+                    />
+                    <Bar 
+                      dataKey="sales" 
+                      fill="hsl(var(--chart-1))" 
+                      radius={[4, 4, 0, 0]}
+                      name="sales"
+                    />
+                    <Bar 
+                      dataKey="expenses" 
+                      fill="hsl(var(--chart-3))" 
+                      radius={[4, 4, 0, 0]}
+                      name="expenses"
+                    />
+                    <Line 
+                      type="monotone" 
+                      dataKey="netProfit" 
+                      stroke="hsl(var(--chart-2))" 
+                      strokeWidth={3}
+                      dot={{ fill: 'hsl(var(--chart-2))', strokeWidth: 2 }}
+                      name="netProfit"
+                    />
+                  </ComposedChart>
+                </ResponsiveContainer>
+              </div>
+            ) : (
+              <p className="text-center text-muted-foreground py-8">No profit data yet</p>
+            )}
+          </CardContent>
+        </Card>
 
         {/* Value Breakdown */}
         <div className="grid gap-4 md:grid-cols-3">

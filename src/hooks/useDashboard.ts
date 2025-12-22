@@ -1,6 +1,7 @@
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { RawMaterial, Product, DashboardStats } from '@/types/database';
+import { format, subDays, startOfDay, endOfDay, startOfMonth, endOfMonth, startOfYear, endOfYear } from 'date-fns';
 
 export function useDashboardStats() {
   return useQuery({
@@ -628,6 +629,235 @@ export function useSalesByCustomer() {
         }));
       
       return topCustomers;
+    }
+  });
+}
+
+// Today's Net Profit hook
+export function useTodayProfit() {
+  return useQuery({
+    queryKey: ['today-profit'],
+    queryFn: async () => {
+      const today = format(new Date(), 'yyyy-MM-dd');
+      
+      // Get today's sales
+      const { data: sales, error: salesError } = await supabase
+        .from('sales')
+        .select('total_amount, subtotal')
+        .eq('sale_date', today);
+      
+      if (salesError) throw salesError;
+      
+      // Get today's expenses
+      const { data: expenses, error: expensesError } = await supabase
+        .from('expenses')
+        .select('amount')
+        .eq('expense_date', today);
+      
+      if (expensesError) throw expensesError;
+      
+      // Get today's sale items for COGS calculation
+      const { data: saleItems, error: saleItemsError } = await supabase
+        .from('sale_items')
+        .select(`
+          quantity,
+          product:products(cost_price),
+          sale:sales!inner(sale_date)
+        `)
+        .eq('sale.sale_date', today);
+      
+      if (saleItemsError) throw saleItemsError;
+      
+      const totalSales = sales?.reduce((sum, s) => sum + Number(s.total_amount), 0) || 0;
+      const totalExpenses = expenses?.reduce((sum, e) => sum + Number(e.amount), 0) || 0;
+      const cogs = saleItems?.reduce((sum, item: any) => {
+        const costPrice = item.product?.cost_price || 0;
+        return sum + (Number(item.quantity) * Number(costPrice));
+      }, 0) || 0;
+      
+      const grossProfit = totalSales - cogs;
+      const netProfit = grossProfit - totalExpenses;
+      
+      return {
+        totalSales,
+        totalExpenses,
+        cogs,
+        grossProfit,
+        netProfit
+      };
+    }
+  });
+}
+
+// This Month's Profit hook
+export function useMonthProfit() {
+  return useQuery({
+    queryKey: ['month-profit'],
+    queryFn: async () => {
+      const now = new Date();
+      const monthStart = format(startOfMonth(now), 'yyyy-MM-dd');
+      const monthEnd = format(endOfMonth(now), 'yyyy-MM-dd');
+      
+      // Get this month's sales
+      const { data: sales, error: salesError } = await supabase
+        .from('sales')
+        .select('total_amount')
+        .gte('sale_date', monthStart)
+        .lte('sale_date', monthEnd);
+      
+      if (salesError) throw salesError;
+      
+      // Get this month's expenses
+      const { data: expenses, error: expensesError } = await supabase
+        .from('expenses')
+        .select('amount')
+        .gte('expense_date', monthStart)
+        .lte('expense_date', monthEnd);
+      
+      if (expensesError) throw expensesError;
+      
+      // Get this month's sale items for COGS
+      const { data: saleItems, error: saleItemsError } = await supabase
+        .from('sale_items')
+        .select(`
+          quantity,
+          product:products(cost_price),
+          sale:sales!inner(sale_date)
+        `)
+        .gte('sale.sale_date', monthStart)
+        .lte('sale.sale_date', monthEnd);
+      
+      if (saleItemsError) throw saleItemsError;
+      
+      const totalSales = sales?.reduce((sum, s) => sum + Number(s.total_amount), 0) || 0;
+      const totalExpenses = expenses?.reduce((sum, e) => sum + Number(e.amount), 0) || 0;
+      const cogs = saleItems?.reduce((sum, item: any) => {
+        const costPrice = item.product?.cost_price || 0;
+        return sum + (Number(item.quantity) * Number(costPrice));
+      }, 0) || 0;
+      
+      const grossProfit = totalSales - cogs;
+      const netProfit = grossProfit - totalExpenses;
+      
+      return {
+        totalSales,
+        totalExpenses,
+        cogs,
+        grossProfit,
+        netProfit
+      };
+    }
+  });
+}
+
+// Profit Trends (Last 30 days daily, monthly, yearly)
+export function useProfitTrends(period: 'daily' | 'monthly' | 'yearly' = 'daily') {
+  return useQuery({
+    queryKey: ['profit-trends', period],
+    queryFn: async () => {
+      const now = new Date();
+      let startDate: Date;
+      let groupByFormat: string;
+      
+      if (period === 'daily') {
+        startDate = subDays(now, 30);
+        groupByFormat = 'yyyy-MM-dd';
+      } else if (period === 'monthly') {
+        startDate = subDays(now, 365);
+        groupByFormat = 'yyyy-MM';
+      } else {
+        startDate = subDays(now, 365 * 3);
+        groupByFormat = 'yyyy';
+      }
+      
+      const startDateStr = format(startDate, 'yyyy-MM-dd');
+      
+      // Get sales
+      const { data: sales, error: salesError } = await supabase
+        .from('sales')
+        .select('sale_date, total_amount')
+        .gte('sale_date', startDateStr);
+      
+      if (salesError) throw salesError;
+      
+      // Get expenses
+      const { data: expenses, error: expensesError } = await supabase
+        .from('expenses')
+        .select('expense_date, amount')
+        .gte('expense_date', startDateStr);
+      
+      if (expensesError) throw expensesError;
+      
+      // Get sale items with cost
+      const { data: saleItems, error: saleItemsError } = await supabase
+        .from('sale_items')
+        .select(`
+          quantity,
+          product:products(cost_price),
+          sale:sales!inner(sale_date)
+        `)
+        .gte('sale.sale_date', startDateStr);
+      
+      if (saleItemsError) throw saleItemsError;
+      
+      // Group data by period
+      const groupedData: Record<string, { sales: number; expenses: number; cogs: number }> = {};
+      
+      // Group sales
+      for (const sale of sales || []) {
+        const key = format(new Date(sale.sale_date), groupByFormat);
+        if (!groupedData[key]) {
+          groupedData[key] = { sales: 0, expenses: 0, cogs: 0 };
+        }
+        groupedData[key].sales += Number(sale.total_amount);
+      }
+      
+      // Group expenses
+      for (const expense of expenses || []) {
+        const key = format(new Date(expense.expense_date), groupByFormat);
+        if (!groupedData[key]) {
+          groupedData[key] = { sales: 0, expenses: 0, cogs: 0 };
+        }
+        groupedData[key].expenses += Number(expense.amount);
+      }
+      
+      // Group COGS
+      for (const item of saleItems || []) {
+        const saleData = item.sale as any;
+        if (!saleData?.sale_date) continue;
+        const key = format(new Date(saleData.sale_date), groupByFormat);
+        if (!groupedData[key]) {
+          groupedData[key] = { sales: 0, expenses: 0, cogs: 0 };
+        }
+        const costPrice = (item.product as any)?.cost_price || 0;
+        groupedData[key].cogs += Number(item.quantity) * Number(costPrice);
+      }
+      
+      // Convert to array with profit calculation
+      const trends = Object.entries(groupedData)
+        .sort(([a], [b]) => a.localeCompare(b))
+        .map(([date, data]) => {
+          const grossProfit = data.sales - data.cogs;
+          const netProfit = grossProfit - data.expenses;
+          
+          let displayDate = date;
+          if (period === 'daily') {
+            displayDate = format(new Date(date), 'dd MMM');
+          } else if (period === 'monthly') {
+            displayDate = format(new Date(date + '-01'), 'MMM yy');
+          }
+          
+          return {
+            date: displayDate,
+            sales: data.sales,
+            expenses: data.expenses,
+            cogs: data.cogs,
+            grossProfit,
+            netProfit
+          };
+        });
+      
+      return trends;
     }
   });
 }
