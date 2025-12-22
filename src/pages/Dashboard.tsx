@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { MainLayout } from '@/components/layout/MainLayout';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { useDashboardStats, useInventoryInsights, useManufacturingInsights, useAlerts, useSalesTrends, useProductionTrends, useWeeklySales, useInventoryTrends, useTopSellingProducts, useProfitMargins, useMaterialConsumption, useSalesByCustomer, useTodayProfit, useMonthProfit, useProfitTrends } from '@/hooks/useDashboard';
+import { useDashboardStats, useInventoryInsights, useManufacturingInsights, useAlerts, useSalesTrends, useProductionTrends, useWeeklySales, useInventoryTrends, useTopSellingProducts, useProfitMargins, useMaterialConsumption, useSalesByCustomer, useTodayProfit, useMonthProfit, useProfitTrends, useTopProfitableProducts } from '@/hooks/useDashboard';
 import { useProductionFeasibility } from '@/hooks/useProductionFeasibility';
 import { Package, Leaf, DollarSign, Factory, AlertTriangle, TrendingUp, Boxes, Ban, ShoppingCart, Activity, Calendar, Warehouse, Trophy, Percent, FlaskConical, Users, CheckCircle, XCircle, TrendingDown, Wallet } from 'lucide-react';
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip, BarChart, Bar, XAxis, YAxis, CartesianGrid, LineChart, Line, Legend, Area, AreaChart, ComposedChart } from 'recharts';
@@ -54,6 +54,7 @@ export default function Dashboard() {
   const { data: todayProfit } = useTodayProfit();
   const { data: monthProfit } = useMonthProfit();
   const { data: profitTrends } = useProfitTrends(profitPeriod);
+  const { data: topProfitableProducts } = useTopProfitableProducts();
 
   if (statsLoading) {
     return (
@@ -246,6 +247,46 @@ export default function Dashboard() {
               </div>
             ) : (
               <p className="text-center text-muted-foreground py-8">No profit data yet</p>
+            )}
+          </CardContent>
+        </Card>
+
+        {/* Top 5 Profitable Products */}
+        <Card>
+          <CardHeader className="pb-2">
+            <CardTitle className="flex items-center gap-2">
+              <Trophy className="h-5 w-5 text-yellow-500" />
+              টপ ৫ লাভজনক প্রোডাক্ট
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            {topProfitableProducts && topProfitableProducts.length > 0 ? (
+              <div className="space-y-3">
+                {topProfitableProducts.map((product, index) => (
+                  <div key={product.id} className="flex items-center justify-between p-3 bg-accent/50 rounded-lg">
+                    <div className="flex items-center gap-3">
+                      <div className={`w-8 h-8 rounded-full flex items-center justify-center font-bold ${
+                        index === 0 ? 'bg-yellow-500 text-white' :
+                        index === 1 ? 'bg-gray-400 text-white' :
+                        index === 2 ? 'bg-amber-600 text-white' :
+                        'bg-muted text-muted-foreground'
+                      }`}>
+                        {index + 1}
+                      </div>
+                      <div>
+                        <p className="font-medium text-sm">{product.name}</p>
+                        <p className="text-xs text-muted-foreground">{product.sku} • {product.unitsSold} units sold</p>
+                      </div>
+                    </div>
+                    <div className="text-right">
+                      <p className="font-bold text-primary">৳{product.totalProfit.toLocaleString('en-BD', { maximumFractionDigits: 0 })}</p>
+                      <p className="text-xs text-muted-foreground">{product.profitMargin.toFixed(1)}% margin</p>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <p className="text-center text-muted-foreground py-8">No sales data yet</p>
             )}
           </CardContent>
         </Card>
