@@ -96,7 +96,7 @@ export default {
   		},
 		fontFamily: {
 			sans: [
-				'Kalpurush',
+				'Hind Siliguri',
 				'Work Sans',
 				'ui-sans-serif',
 				'system-ui',
@@ -130,6 +130,7 @@ export default {
 				'monospace'
 			],
 			bangla: [
+				'Hind Siliguri',
 				'Kalpurush',
 				'sans-serif'
 			]
