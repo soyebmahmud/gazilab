@@ -238,6 +238,43 @@ function CreateBOMDialog({ onClose, existingProductId }: { onClose: () => void; 
 function BOMDetailsDialog({ bomId }: { bomId: string }) {
   const { data: bom, isLoading } = useBOM(bomId);
 
+  // Group items by layer - must be before any conditional returns
+  const itemsByLayer = useMemo(() => {
+    if (!bom?.items) {
+      return {
+        api_excipient: [],
+        primary_packaging: [],
+        secondary_packaging: [],
+        tertiary_packaging: [],
+      };
+    }
+    const grouped: Record<string, typeof bom.items> = {
+      api_excipient: [],
+      primary_packaging: [],
+      secondary_packaging: [],
+      tertiary_packaging: [],
+    };
+    bom.items?.forEach((item: any) => {
+      const layer = item.bom_layer || 'api_excipient';
+      if (grouped[layer]) {
+        grouped[layer].push(item);
+      }
+    });
+    return grouped;
+  }, [bom?.items]);
+
+  // Calculate cost by layer - must be before any conditional returns
+  const costByLayer = useMemo(() => {
+    const costs: Record<string, number> = {};
+    Object.entries(itemsByLayer).forEach(([layer, items]) => {
+      costs[layer] = items.reduce((sum, item: any) => {
+        const effectiveQty = item.quantity_per_unit * (1 + item.wastage_percent / 100);
+        return sum + effectiveQty * (item.raw_material?.cost_per_unit || 0);
+      }, 0);
+    });
+    return costs;
+  }, [itemsByLayer]);
+
   if (isLoading) {
     return (
       <DialogContent className="max-w-3xl">
@@ -259,35 +296,6 @@ function BOMDetailsDialog({ bomId }: { bomId: string }) {
       </DialogContent>
     );
   }
-
-  // Group items by layer
-  const itemsByLayer = useMemo(() => {
-    const grouped: Record<string, typeof bom.items> = {
-      api_excipient: [],
-      primary_packaging: [],
-      secondary_packaging: [],
-      tertiary_packaging: [],
-    };
-    bom.items?.forEach((item: any) => {
-      const layer = item.bom_layer || 'api_excipient';
-      if (grouped[layer]) {
-        grouped[layer].push(item);
-      }
-    });
-    return grouped;
-  }, [bom.items]);
-
-  // Calculate cost by layer
-  const costByLayer = useMemo(() => {
-    const costs: Record<string, number> = {};
-    Object.entries(itemsByLayer).forEach(([layer, items]) => {
-      costs[layer] = items.reduce((sum, item: any) => {
-        const effectiveQty = item.quantity_per_unit * (1 + item.wastage_percent / 100);
-        return sum + effectiveQty * (item.raw_material?.cost_per_unit || 0);
-      }, 0);
-    });
-    return costs;
-  }, [itemsByLayer]);
 
   return (
     <DialogContent className="max-w-3xl max-h-[85vh] overflow-y-auto">
