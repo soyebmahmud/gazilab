@@ -266,57 +266,81 @@ export default function RawMaterialsPage() {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {filteredMaterials.map((material) => (
-                    <TableRow key={material.id}>
-                      <TableCell className="font-medium">{material.name}</TableCell>
-                      <TableCell>{material.sku}</TableCell>
-                      <TableCell><Badge variant="outline">{material.category}</Badge></TableCell>
-                      <TableCell>{material.current_stock.toFixed(2)}</TableCell>
-                      <TableCell>{material.unit}</TableCell>
-                      <TableCell>৳{material.cost_per_unit}</TableCell>
-                      <TableCell>
-                        {showDeleted ? (
-                          <Badge variant="secondary">Deleted</Badge>
-                        ) : material.current_stock <= 0 ? (
-                          <Badge variant="destructive">Out of Stock</Badge>
-                        ) : material.current_stock <= material.min_stock_level ? (
-                          <Badge className="bg-yellow-500">Low Stock</Badge>
-                        ) : (
-                          <Badge className="bg-primary">In Stock</Badge>
-                        )}
-                      </TableCell>
-                      <TableCell className="text-right">
-                        <div className="flex justify-end gap-1">
+                  {filteredMaterials.map((material) => {
+                    const isOutOfStock = material.current_stock <= 0;
+                    const isLowStock = !isOutOfStock && material.current_stock <= material.min_stock_level;
+                    
+                    return (
+                      <TableRow 
+                        key={material.id}
+                        className={
+                          showDeleted ? '' :
+                          isOutOfStock ? 'bg-destructive/10 hover:bg-destructive/15' :
+                          isLowStock ? 'bg-yellow-500/10 hover:bg-yellow-500/15' : ''
+                        }
+                      >
+                        <TableCell className="font-medium">
+                          <div className="flex items-center gap-2">
+                            {isOutOfStock && !showDeleted && (
+                              <AlertTriangle className="h-4 w-4 text-destructive shrink-0" />
+                            )}
+                            {isLowStock && !showDeleted && (
+                              <AlertTriangle className="h-4 w-4 text-yellow-500 shrink-0" />
+                            )}
+                            {material.name}
+                          </div>
+                        </TableCell>
+                        <TableCell>{material.sku}</TableCell>
+                        <TableCell><Badge variant="outline">{material.category}</Badge></TableCell>
+                        <TableCell className={isOutOfStock ? 'text-destructive font-semibold' : isLowStock ? 'text-yellow-600 font-semibold' : ''}>
+                          {material.current_stock.toFixed(2)}
+                        </TableCell>
+                        <TableCell>{material.unit}</TableCell>
+                        <TableCell>৳{material.cost_per_unit}</TableCell>
+                        <TableCell>
                           {showDeleted ? (
-                            <Button size="icon" variant="ghost" onClick={() => restoreMaterial.mutate(material.id)} title="Restore">
-                              <RotateCcw className="h-4 w-4" />
-                            </Button>
+                            <Badge variant="secondary">Deleted</Badge>
+                          ) : isOutOfStock ? (
+                            <Badge variant="destructive">Out of Stock</Badge>
+                          ) : isLowStock ? (
+                            <Badge className="bg-yellow-500 text-yellow-950">Low Stock</Badge>
                           ) : (
-                            <>
-                              <Button 
-                                size="sm" 
-                                variant={material.current_stock <= 0 ? "default" : "outline"}
-                                onClick={() => setAddStockMaterial(material)}
-                                className="mr-1"
-                              >
-                                <PackagePlus className="h-4 w-4 mr-1" />
-                                {material.current_stock <= 0 ? 'Add Stock' : 'Receive'}
-                              </Button>
-                              <Button size="icon" variant="ghost" onClick={() => handleViewUsage(material)}>
-                                <Eye className="h-4 w-4" />
-                              </Button>
-                              <Button size="icon" variant="ghost" onClick={() => handleEdit(material)}>
-                                <Pencil className="h-4 w-4" />
-                              </Button>
-                              <Button size="icon" variant="ghost" onClick={() => handleDelete(material)}>
-                                <Trash2 className="h-4 w-4" />
-                              </Button>
-                            </>
+                            <Badge className="bg-primary">In Stock</Badge>
                           )}
-                        </div>
-                      </TableCell>
-                    </TableRow>
-                  ))}
+                        </TableCell>
+                        <TableCell className="text-right">
+                          <div className="flex justify-end gap-1">
+                            {showDeleted ? (
+                              <Button size="icon" variant="ghost" onClick={() => restoreMaterial.mutate(material.id)} title="Restore">
+                                <RotateCcw className="h-4 w-4" />
+                              </Button>
+                            ) : (
+                              <>
+                                <Button 
+                                  size="sm" 
+                                  variant={isOutOfStock || isLowStock ? "default" : "outline"}
+                                  onClick={() => setAddStockMaterial(material)}
+                                  className={isOutOfStock ? 'bg-destructive hover:bg-destructive/90' : isLowStock ? 'bg-yellow-500 hover:bg-yellow-600 text-yellow-950' : ''}
+                                >
+                                  <PackagePlus className="h-4 w-4 mr-1" />
+                                  {isOutOfStock ? 'স্টক যোগ করুন' : 'Receive'}
+                                </Button>
+                                <Button size="icon" variant="ghost" onClick={() => handleViewUsage(material)}>
+                                  <Eye className="h-4 w-4" />
+                                </Button>
+                                <Button size="icon" variant="ghost" onClick={() => handleEdit(material)}>
+                                  <Pencil className="h-4 w-4" />
+                                </Button>
+                                <Button size="icon" variant="ghost" onClick={() => handleDelete(material)}>
+                                  <Trash2 className="h-4 w-4" />
+                                </Button>
+                              </>
+                            )}
+                          </div>
+                        </TableCell>
+                      </TableRow>
+                    );
+                  })}
                 </TableBody>
               </Table>
             )}
