@@ -20,7 +20,8 @@ import {
   Bot,
   Wallet,
   CreditCard,
-  IndianRupee
+  IndianRupee,
+  Layers
 } from 'lucide-react';
 import gaziLogo from '@/assets/gazi-logo.svg';
 import { useAuth } from '@/hooks/useAuth';
@@ -31,6 +32,7 @@ const navItems = [
   { to: '/', icon: LayoutDashboard, label: 'Dashboard' },
   { to: '/raw-materials', icon: Leaf, label: 'Raw Materials' },
   { to: '/products', icon: Package, label: 'Products' },
+  { to: '/packaging-assemblies', icon: Layers, label: 'Packaging Assemblies' },
   { to: '/bom', icon: ClipboardList, label: 'Bill of Materials' },
   { to: '/production', icon: Factory, label: 'Production' },
   { to: '/stock-ledger', icon: Boxes, label: 'Stock Ledger' },
