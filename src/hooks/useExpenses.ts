@@ -1,6 +1,7 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
+import { ensureValidSession } from './useSupabaseQuery';
 
 export interface ExpenseCategory {
   id: string;
@@ -29,6 +30,7 @@ export function useExpenseCategories() {
   return useQuery({
     queryKey: ['expense-categories'],
     queryFn: async () => {
+      await ensureValidSession();
       const { data, error } = await supabase
         .from('expense_categories')
         .select('*')
@@ -44,6 +46,7 @@ export function useExpenses(dateFrom?: string, dateTo?: string) {
   return useQuery({
     queryKey: ['expenses', dateFrom, dateTo],
     queryFn: async () => {
+      await ensureValidSession();
       let query = supabase
         .from('expenses')
         .select(`
@@ -67,6 +70,7 @@ export function useExpenses(dateFrom?: string, dateTo?: string) {
   });
 }
 
+
 interface CreateExpenseData {
   category_id: string;
   amount: number;
@@ -83,6 +87,11 @@ export function useCreateExpense() {
   
   return useMutation({
     mutationFn: async (data: CreateExpenseData) => {
+      const isValid = await ensureValidSession();
+      if (!isValid) {
+        throw new Error('Session expired. Please log in again.');
+      }
+      
       const { data: expense, error } = await supabase
         .from('expenses')
         .insert(data)
@@ -141,6 +150,11 @@ export function useDeleteExpense() {
   
   return useMutation({
     mutationFn: async (id: string) => {
+      const isValid = await ensureValidSession();
+      if (!isValid) {
+        throw new Error('Session expired. Please log in again.');
+      }
+      
       const { error } = await supabase
         .from('expenses')
         .delete()
