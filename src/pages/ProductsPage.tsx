@@ -17,8 +17,52 @@ import { Plus, Pencil, Trash2, X, ClipboardList, Search, Package } from 'lucide-
 import { useState, useMemo } from 'react';
 import { PackagingConfigDialog } from '@/components/PackagingConfigDialog';
 
-const CATEGORIES: ProductCategory[] = ['capsules', 'tablets', 'powder', 'liquid', 'cream', 'other'];
+// Extended categories for pharmaceutical products - includes new DB enum values
+const CATEGORIES: string[] = [
+  'capsules', 'tablets', 'powder', 'liquid', 'cream', 
+  'syrup', 'suspension', 'injection', 'ointment', 'drops', 
+  'vial', 'gel', 'lotion', 'spray', 'other'
+];
 const UNITS: UnitType[] = ['kg', 'g', 'l', 'ml', 'pcs', 'box', 'pack'];
+
+// Dosage forms from database
+const DOSAGE_FORMS: string[] = [
+  'tablet', 'capsule', 'syrup', 'suspension', 'injection', 
+  'cream', 'ointment', 'powder', 'drops', 'vial', 'other'
+];
+
+// Category labels in Bengali for better UX
+const CATEGORY_LABELS: Record<string, string> = {
+  capsules: 'ক্যাপসুল',
+  tablets: 'ট্যাবলেট',
+  powder: 'পাউডার',
+  liquid: 'লিকুইড',
+  cream: 'ক্রিম',
+  syrup: 'সিরাপ',
+  suspension: 'সাসপেনশন',
+  injection: 'ইনজেকশন',
+  ointment: 'অয়েন্টমেন্ট',
+  drops: 'ড্রপস',
+  vial: 'ভায়াল',
+  gel: 'জেল',
+  lotion: 'লোশন',
+  spray: 'স্প্রে',
+  other: 'অন্যান্য'
+};
+
+const DOSAGE_FORM_LABELS: Record<string, string> = {
+  tablet: 'ট্যাবলেট',
+  capsule: 'ক্যাপসুল',
+  syrup: 'সিরাপ',
+  suspension: 'সাসপেনশন',
+  injection: 'ইনজেকশন',
+  cream: 'ক্রিম',
+  ointment: 'অয়েন্টমেন্ট',
+  powder: 'পাউডার',
+  drops: 'ড্রপস',
+  vial: 'ভায়াল',
+  other: 'অন্যান্য'
+};
 
 interface BOMItemForm {
   raw_material_id: string;
@@ -34,11 +78,15 @@ function ProductForm({ product, onClose }: { product?: Product; onClose: () => v
   const [formData, setFormData] = useState({
     name: product?.name || '',
     sku: product?.sku || '',
-    category: product?.category || 'capsules' as ProductCategory,
+    category: (product?.category || 'capsules') as string,
+    dosage_form: ((product as any)?.dosage_form || '') as string,
+    strength: ((product as any)?.strength || '') as string,
     unit: product?.unit || 'pcs' as UnitType,
     selling_price: product?.selling_price || 0,
     min_stock_level: product?.min_stock_level || 0,
     units_per_pack: product?.units_per_pack || 1,
+    batch_size: ((product as any)?.batch_size || null) as number | null,
+    shelf_life_months: ((product as any)?.shelf_life_months || null) as number | null,
     opening_stock: 0,
     description: product?.description || '',
     is_active: product?.is_active ?? true
@@ -63,11 +111,15 @@ function ProductForm({ product, onClose }: { product?: Product; onClose: () => v
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    const submitData = {
+      ...formData,
+      category: formData.category as ProductCategory,
+    };
     if (product) {
-      await updateProduct.mutateAsync({ id: product.id, ...formData });
+      await updateProduct.mutateAsync({ id: product.id, ...submitData } as any);
     } else {
       const validBomItems = bomItems.filter(item => item.raw_material_id && item.quantity_per_unit > 0);
-      await createProduct.mutateAsync({ product: formData, bomItems: validBomItems.length > 0 ? validBomItems : undefined });
+      await createProduct.mutateAsync({ product: submitData as any, bomItems: validBomItems.length > 0 ? validBomItems : undefined });
     }
     onClose();
   };
@@ -76,7 +128,7 @@ function ProductForm({ product, onClose }: { product?: Product; onClose: () => v
     <form onSubmit={handleSubmit} className="space-y-4 max-h-[70vh] overflow-y-auto">
       <div className="grid grid-cols-2 gap-4">
         <div className="space-y-2">
-          <Label>Name *</Label>
+          <Label>Name / নাম *</Label>
           <Input value={formData.name} onChange={(e) => setFormData({ ...formData, name: e.target.value })} required />
         </div>
         <div className="space-y-2">
@@ -84,25 +136,52 @@ function ProductForm({ product, onClose }: { product?: Product; onClose: () => v
           <Input value={formData.sku} onChange={(e) => setFormData({ ...formData, sku: e.target.value })} required />
         </div>
         <div className="space-y-2">
-          <Label>Category</Label>
-          <Select value={formData.category} onValueChange={(v) => setFormData({ ...formData, category: v as ProductCategory })}>
+          <Label>Category / ক্যাটাগরি</Label>
+          <Select value={formData.category} onValueChange={(v) => setFormData({ ...formData, category: v })}>
             <SelectTrigger><SelectValue /></SelectTrigger>
-            <SelectContent>{CATEGORIES.map(c => <SelectItem key={c} value={c}>{c}</SelectItem>)}</SelectContent>
+            <SelectContent>
+              {CATEGORIES.map(c => (
+                <SelectItem key={c} value={c}>
+                  {CATEGORY_LABELS[c] || c} ({c})
+                </SelectItem>
+              ))}
+            </SelectContent>
           </Select>
         </div>
         <div className="space-y-2">
-          <Label>Unit</Label>
+          <Label>Dosage Form / ডোজ ফর্ম</Label>
+          <Select value={formData.dosage_form} onValueChange={(v) => setFormData({ ...formData, dosage_form: v })}>
+            <SelectTrigger><SelectValue placeholder="Select dosage form" /></SelectTrigger>
+            <SelectContent>
+              {DOSAGE_FORMS.map(d => (
+                <SelectItem key={d} value={d}>
+                  {DOSAGE_FORM_LABELS[d] || d} ({d})
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+        <div className="space-y-2">
+          <Label>Strength / শক্তি</Label>
+          <Input 
+            value={formData.strength} 
+            onChange={(e) => setFormData({ ...formData, strength: e.target.value })} 
+            placeholder="e.g., 500mg, 10ml"
+          />
+        </div>
+        <div className="space-y-2">
+          <Label>Unit / ইউনিট</Label>
           <Select value={formData.unit} onValueChange={(v) => setFormData({ ...formData, unit: v as UnitType })}>
             <SelectTrigger><SelectValue /></SelectTrigger>
             <SelectContent>{UNITS.map(u => <SelectItem key={u} value={u}>{u}</SelectItem>)}</SelectContent>
           </Select>
         </div>
         <div className="space-y-2">
-          <Label>Selling Price</Label>
+          <Label>Selling Price / বিক্রয় মূল্য</Label>
           <Input type="number" step="0.01" value={formData.selling_price} onChange={(e) => setFormData({ ...formData, selling_price: parseFloat(e.target.value) || 0 })} />
         </div>
         <div className="space-y-2">
-          <Label>Min Stock Level</Label>
+          <Label>Min Stock Level / মিনিমাম স্টক</Label>
           <Input type="number" step="0.001" value={formData.min_stock_level} onChange={(e) => setFormData({ ...formData, min_stock_level: parseFloat(e.target.value) || 0 })} />
         </div>
         <div className="space-y-2">
@@ -115,6 +194,28 @@ function ProductForm({ product, onClose }: { product?: Product; onClose: () => v
             onChange={(e) => setFormData({ ...formData, units_per_pack: parseInt(e.target.value) || 1 })} 
           />
           <p className="text-xs text-muted-foreground">E.g., 10 for tablets where 1 strip = 10 tablets</p>
+        </div>
+        <div className="space-y-2">
+          <Label>Batch Size / ব্যাচ সাইজ</Label>
+          <Input 
+            type="number" 
+            step="1" 
+            min="1"
+            value={formData.batch_size || ''} 
+            onChange={(e) => setFormData({ ...formData, batch_size: e.target.value ? parseInt(e.target.value) : null })} 
+            placeholder="Standard production batch size"
+          />
+        </div>
+        <div className="space-y-2">
+          <Label>Shelf Life (months) / মেয়াদ</Label>
+          <Input 
+            type="number" 
+            step="1" 
+            min="1"
+            value={formData.shelf_life_months || ''} 
+            onChange={(e) => setFormData({ ...formData, shelf_life_months: e.target.value ? parseInt(e.target.value) : null })} 
+            placeholder="Shelf life in months"
+          />
         </div>
         {!product && (
           <div className="space-y-2">

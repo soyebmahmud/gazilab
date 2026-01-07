@@ -1583,6 +1583,15 @@ export type Database = {
         | "liquid"
         | "cream"
         | "other"
+        | "syrup"
+        | "suspension"
+        | "injection"
+        | "ointment"
+        | "drops"
+        | "vial"
+        | "gel"
+        | "lotion"
+        | "spray"
       production_status: "planned" | "in_progress" | "completed" | "cancelled"
       stock_movement_type:
         | "opening"
@@ -1765,6 +1774,15 @@ export const Constants = {
         "liquid",
         "cream",
         "other",
+        "syrup",
+        "suspension",
+        "injection",
+        "ointment",
+        "drops",
+        "vial",
+        "gel",
+        "lotion",
+        "spray",
       ],
       production_status: ["planned", "in_progress", "completed", "cancelled"],
       stock_movement_type: [
