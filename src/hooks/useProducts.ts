@@ -2,18 +2,22 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { Product, BOMItem } from '@/types/database';
 import { toast } from 'sonner';
-import { ensureValidSession } from './useSupabaseQuery';
+import { ensureValidSession, withJwtRefreshRetry } from './useSupabaseQuery';
 
 export function useProducts() {
   return useQuery({
     queryKey: ['products'],
     queryFn: async () => {
-      await ensureValidSession();
-      const { data, error } = await supabase
-        .from('products')
-        .select('*')
-        .eq('is_active', true)
-        .order('name');
+      const isValid = await ensureValidSession();
+      if (!isValid) throw new Error('Session expired. Please log in again.');
+
+      const { data, error } = await withJwtRefreshRetry(async () =>
+        await supabase
+          .from('products')
+          .select('*')
+          .eq('is_active', true)
+          .order('name')
+      );
       
       if (error) throw error;
       return data as Product[];
@@ -25,12 +29,16 @@ export function useProduct(id: string) {
   return useQuery({
     queryKey: ['product', id],
     queryFn: async () => {
-      await ensureValidSession();
-      const { data, error } = await supabase
-        .from('products')
-        .select('*')
-        .eq('id', id)
-        .single();
+      const isValid = await ensureValidSession();
+      if (!isValid) throw new Error('Session expired. Please log in again.');
+
+      const { data, error } = await withJwtRefreshRetry(async () =>
+        await supabase
+          .from('products')
+          .select('*')
+          .eq('id', id)
+          .maybeSingle()
+      );
       
       if (error) throw error;
       return data as Product;
@@ -49,68 +57,71 @@ export function useCreateProduct() {
   
   return useMutation({
     mutationFn: async ({ product, bomItems }: CreateProductData) => {
-      // Ensure valid session before mutation
       const isValid = await ensureValidSession();
-      if (!isValid) {
-        throw new Error('Session expired. Please log in again.');
-      }
+      if (!isValid) throw new Error('Session expired. Please log in again.');
       
       const { opening_stock, ...productData } = product;
       
-      // Create the product
-      const { data: newProduct, error: productError } = await supabase
-        .from('products')
-        .insert({ ...productData, cost_price: 0 })
-        .select()
-        .single();
+      const { data: newProduct, error: productError } = await withJwtRefreshRetry(async () =>
+        await supabase
+          .from('products')
+          .insert({ ...productData, cost_price: 0 })
+          .select()
+          .single()
+      );
       
       if (productError) throw productError;
       
-      // Add opening stock entry if provided
-      if (opening_stock && opening_stock > 0) {
-        const { error: ledgerError } = await supabase
-          .from('stock_ledger_products')
-          .insert({
-            product_id: newProduct.id,
-            movement_type: 'opening',
-            quantity: opening_stock,
-            notes: 'Opening stock',
-            balance_after: opening_stock
-          });
+      if (opening_stock && opening_stock > 0 && newProduct) {
+        const { error: ledgerError } = await withJwtRefreshRetry(async () =>
+          await supabase
+            .from('stock_ledger_products')
+            .insert({
+              product_id: newProduct.id,
+              movement_type: 'opening',
+              quantity: opening_stock,
+              notes: 'Opening stock',
+              balance_after: opening_stock
+            })
+        );
         
         if (ledgerError) throw ledgerError;
       }
       
-      // Create BOM if items provided
-      if (bomItems && bomItems.length > 0) {
-        const { data: newBom, error: bomError } = await supabase
-          .from('bom')
-          .insert({
-            product_id: newProduct.id,
-            version: 1,
-            is_active: true
-          })
-          .select()
-          .single();
+      if (bomItems && bomItems.length > 0 && newProduct) {
+        const { data: newBom, error: bomError } = await withJwtRefreshRetry(async () =>
+          await supabase
+            .from('bom')
+            .insert({
+              product_id: newProduct.id,
+              version: 1,
+              is_active: true
+            })
+            .select()
+            .single()
+        );
         
         if (bomError) throw bomError;
         
-        // Add BOM items
-        const { error: itemsError } = await supabase
-          .from('bom_items')
-          .insert(
-            bomItems.map(item => ({
-              bom_id: newBom.id,
-              raw_material_id: item.raw_material_id,
-              quantity_per_unit: item.quantity_per_unit,
-              wastage_percent: item.wastage_percent
-            }))
+        if (newBom) {
+          const { error: itemsError } = await withJwtRefreshRetry(async () =>
+            await supabase
+              .from('bom_items')
+              .insert(
+                bomItems.map(item => ({
+                  bom_id: newBom.id,
+                  raw_material_id: item.raw_material_id,
+                  quantity_per_unit: item.quantity_per_unit,
+                  wastage_percent: item.wastage_percent
+                }))
+              )
           );
-        
-        if (itemsError) throw itemsError;
+          
+          if (itemsError) throw itemsError;
+        }
       }
       
-      return newProduct;
+      return newProduct as Product;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['products'] });
@@ -130,19 +141,19 @@ export function useUpdateProduct() {
   return useMutation({
     mutationFn: async ({ id, ...updates }: Partial<Product> & { id: string }) => {
       const isValid = await ensureValidSession();
-      if (!isValid) {
-        throw new Error('Session expired. Please log in again.');
-      }
+      if (!isValid) throw new Error('Session expired. Please log in again.');
       
-      const { data, error } = await supabase
-        .from('products')
-        .update(updates)
-        .eq('id', id)
-        .select()
-        .single();
+      const { data, error } = await withJwtRefreshRetry(async () =>
+        await supabase
+          .from('products')
+          .update(updates)
+          .eq('id', id)
+          .select()
+          .single()
+      );
       
       if (error) throw error;
-      return data;
+      return data as Product;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['products'] });
@@ -160,14 +171,14 @@ export function useDeleteProduct() {
   return useMutation({
     mutationFn: async (id: string) => {
       const isValid = await ensureValidSession();
-      if (!isValid) {
-        throw new Error('Session expired. Please log in again.');
-      }
+      if (!isValid) throw new Error('Session expired. Please log in again.');
       
-      const { error } = await supabase
-        .from('products')
-        .update({ is_active: false })
-        .eq('id', id);
+      const { error } = await withJwtRefreshRetry(async () =>
+        await supabase
+          .from('products')
+          .update({ is_active: false })
+          .eq('id', id)
+      );
       
       if (error) throw error;
     },
@@ -186,12 +197,16 @@ export function useDeletedProducts() {
   return useQuery({
     queryKey: ['deleted-products'],
     queryFn: async () => {
-      await ensureValidSession();
-      const { data, error } = await supabase
-        .from('products')
-        .select('*')
-        .eq('is_active', false)
-        .order('name');
+      const isValid = await ensureValidSession();
+      if (!isValid) throw new Error('Session expired. Please log in again.');
+
+      const { data, error } = await withJwtRefreshRetry(async () =>
+        await supabase
+          .from('products')
+          .select('*')
+          .eq('is_active', false)
+          .order('name')
+      );
       
       if (error) throw error;
       return data as Product[];
@@ -205,14 +220,14 @@ export function useRestoreProduct() {
   return useMutation({
     mutationFn: async (id: string) => {
       const isValid = await ensureValidSession();
-      if (!isValid) {
-        throw new Error('Session expired. Please log in again.');
-      }
+      if (!isValid) throw new Error('Session expired. Please log in again.');
       
-      const { error } = await supabase
-        .from('products')
-        .update({ is_active: true })
-        .eq('id', id);
+      const { error } = await withJwtRefreshRetry(async () =>
+        await supabase
+          .from('products')
+          .update({ is_active: true })
+          .eq('id', id)
+      );
       
       if (error) throw error;
     },
