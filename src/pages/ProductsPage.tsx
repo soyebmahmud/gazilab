@@ -13,11 +13,13 @@ import { useRawMaterials } from '@/hooks/useRawMaterials';
 import { useActiveBOM } from '@/hooks/useBOM';
 import { useProductPackagingConfigs } from '@/hooks/usePackagingConfigs';
 import { Product, ProductCategory, UnitType } from '@/types/database';
-import { Plus, Pencil, Trash2, X, ClipboardList, Search, Package } from 'lucide-react';
-import { useState, useMemo } from 'react';
+import { Plus, Pencil, Trash2, X, ClipboardList, Search, Package, AlertTriangle, Info } from 'lucide-react';
+import { useState, useMemo, useEffect } from 'react';
 import { PackagingConfigDialog } from '@/components/PackagingConfigDialog';
+import { getDosageFormConfig, DOSAGE_FORM_CONFIG } from '@/config/dosageFormConfig';
+import { DosageFormFields, UnitLockedWarning } from '@/components/DosageFormFields';
 
-// Extended categories for pharmaceutical products - includes new DB enum values
+// Extended categories for pharmaceutical products
 const CATEGORIES: string[] = [
   'capsules', 'tablets', 'powder', 'liquid', 'cream', 
   'syrup', 'suspension', 'injection', 'ointment', 'drops', 
@@ -31,7 +33,7 @@ const DOSAGE_FORMS: string[] = [
   'cream', 'ointment', 'powder', 'drops', 'vial', 'other'
 ];
 
-// Category labels in Bengali for better UX
+// Category labels in Bengali
 const CATEGORY_LABELS: Record<string, string> = {
   capsules: 'ক্যাপসুল',
   tablets: 'ট্যাবলেট',
@@ -70,6 +72,23 @@ interface BOMItemForm {
   wastage_percent: number;
 }
 
+interface PackagingFieldsData {
+  bottleSize?: string;
+  bottleType?: string;
+  capType?: string;
+  inductionSeal?: boolean;
+  measuringCup?: boolean;
+  dropper?: boolean;
+  stripType?: string;
+  tubeSize?: string;
+  tubeType?: string;
+  vialSize?: string;
+  ampuleSize?: string;
+  needleIncluded?: boolean;
+  outerCartonSize?: string;
+  leafletRequired?: boolean;
+}
+
 function ProductForm({ product, onClose }: { product?: Product; onClose: () => void }) {
   const createProduct = useCreateProduct();
   const updateProduct = useUpdateProduct();
@@ -91,9 +110,33 @@ function ProductForm({ product, onClose }: { product?: Product; onClose: () => v
     description: product?.description || '',
     is_active: product?.is_active ?? true
   });
+
+  // Packaging fields state
+  const [packagingData, setPackagingData] = useState<PackagingFieldsData>({});
   
   const [bomItems, setBomItems] = useState<BOMItemForm[]>([]);
   const [showBom, setShowBom] = useState(false);
+
+  // Get current dosage form config
+  const dosageConfig = getDosageFormConfig(formData.dosage_form);
+
+  // Auto-update form when dosage form changes
+  useEffect(() => {
+    if (dosageConfig && formData.dosage_form) {
+      setFormData(prev => ({
+        ...prev,
+        unit: dosageConfig.defaultUnit,
+        units_per_pack: dosageConfig.defaultUnitsPerPack,
+        category: dosageConfig.categoryMapping,
+      }));
+      // Reset packaging data when dosage form changes
+      setPackagingData({});
+    }
+  }, [formData.dosage_form]);
+
+  const handlePackagingChange = (data: Partial<PackagingFieldsData>) => {
+    setPackagingData(prev => ({ ...prev, ...data }));
+  };
 
   const addBomItem = () => {
     setBomItems([...bomItems, { raw_material_id: '', quantity_per_unit: 0, wastage_percent: 0 }]);
@@ -111,10 +154,19 @@ function ProductForm({ product, onClose }: { product?: Product; onClose: () => v
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    
+    // Combine packaging data into description for now (can be moved to separate table later)
+    const packagingInfo = Object.entries(packagingData)
+      .filter(([_, v]) => v !== undefined && v !== '' && v !== false)
+      .map(([k, v]) => `${k}: ${v}`)
+      .join(', ');
+    
     const submitData = {
       ...formData,
       category: formData.category as ProductCategory,
+      description: packagingInfo ? `${formData.description || ''} [Packaging: ${packagingInfo}]`.trim() : formData.description,
     };
+    
     if (product) {
       await updateProduct.mutateAsync({ id: product.id, ...submitData } as any);
     } else {
@@ -124,163 +176,214 @@ function ProductForm({ product, onClose }: { product?: Product; onClose: () => v
     onClose();
   };
 
+  // Filter allowed units based on dosage form
+  const allowedUnits = dosageConfig?.allowedUnits || UNITS;
+
   return (
-    <form onSubmit={handleSubmit} className="space-y-4 max-h-[70vh] overflow-y-auto">
-      <div className="grid grid-cols-2 gap-4">
-        <div className="space-y-2">
-          <Label>Name / নাম *</Label>
-          <Input value={formData.name} onChange={(e) => setFormData({ ...formData, name: e.target.value })} required />
+    <form onSubmit={handleSubmit} className="space-y-4 max-h-[70vh] overflow-y-auto pr-2">
+      {/* Dosage Form Selection - PRIMARY DRIVER */}
+      <div className="p-4 border-2 border-primary/30 rounded-lg bg-primary/5">
+        <div className="flex items-center gap-2 mb-3">
+          <Info className="h-5 w-5 text-primary" />
+          <Label className="text-base font-semibold">প্রথমে ডোজ ফর্ম সিলেক্ট করুন</Label>
         </div>
-        <div className="space-y-2">
-          <Label>SKU *</Label>
-          <Input value={formData.sku} onChange={(e) => setFormData({ ...formData, sku: e.target.value })} required />
-        </div>
-        <div className="space-y-2">
-          <Label>Category / ক্যাটাগরি</Label>
-          <Select value={formData.category} onValueChange={(v) => setFormData({ ...formData, category: v })}>
-            <SelectTrigger><SelectValue /></SelectTrigger>
-            <SelectContent>
-              {CATEGORIES.map(c => (
-                <SelectItem key={c} value={c}>
-                  {CATEGORY_LABELS[c] || c} ({c})
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </div>
-        <div className="space-y-2">
-          <Label>Dosage Form / ডোজ ফর্ম</Label>
-          <Select value={formData.dosage_form} onValueChange={(v) => setFormData({ ...formData, dosage_form: v })}>
-            <SelectTrigger><SelectValue placeholder="Select dosage form" /></SelectTrigger>
-            <SelectContent>
-              {DOSAGE_FORMS.map(d => (
-                <SelectItem key={d} value={d}>
-                  {DOSAGE_FORM_LABELS[d] || d} ({d})
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </div>
-        <div className="space-y-2">
-          <Label>Strength / শক্তি</Label>
-          <Input 
-            value={formData.strength} 
-            onChange={(e) => setFormData({ ...formData, strength: e.target.value })} 
-            placeholder="e.g., 500mg, 10ml"
-          />
-        </div>
-        <div className="space-y-2">
-          <Label>Unit / ইউনিট</Label>
-          <Select value={formData.unit} onValueChange={(v) => setFormData({ ...formData, unit: v as UnitType })}>
-            <SelectTrigger><SelectValue /></SelectTrigger>
-            <SelectContent>{UNITS.map(u => <SelectItem key={u} value={u}>{u}</SelectItem>)}</SelectContent>
-          </Select>
-        </div>
-        <div className="space-y-2">
-          <Label>Selling Price / বিক্রয় মূল্য</Label>
-          <Input type="number" step="0.01" value={formData.selling_price} onChange={(e) => setFormData({ ...formData, selling_price: parseFloat(e.target.value) || 0 })} />
-        </div>
-        <div className="space-y-2">
-          <Label>Min Stock Level / মিনিমাম স্টক</Label>
-          <Input type="number" step="0.001" value={formData.min_stock_level} onChange={(e) => setFormData({ ...formData, min_stock_level: parseFloat(e.target.value) || 0 })} />
-        </div>
-        <div className="space-y-2">
-          <Label>Units per Pack/Strip</Label>
-          <Input 
-            type="number" 
-            step="1" 
-            min="1"
-            value={formData.units_per_pack} 
-            onChange={(e) => setFormData({ ...formData, units_per_pack: parseInt(e.target.value) || 1 })} 
-          />
-          <p className="text-xs text-muted-foreground">E.g., 10 for tablets where 1 strip = 10 tablets</p>
-        </div>
-        <div className="space-y-2">
-          <Label>Batch Size / ব্যাচ সাইজ</Label>
-          <Input 
-            type="number" 
-            step="1" 
-            min="1"
-            value={formData.batch_size || ''} 
-            onChange={(e) => setFormData({ ...formData, batch_size: e.target.value ? parseInt(e.target.value) : null })} 
-            placeholder="Standard production batch size"
-          />
-        </div>
-        <div className="space-y-2">
-          <Label>Shelf Life (months) / মেয়াদ</Label>
-          <Input 
-            type="number" 
-            step="1" 
-            min="1"
-            value={formData.shelf_life_months || ''} 
-            onChange={(e) => setFormData({ ...formData, shelf_life_months: e.target.value ? parseInt(e.target.value) : null })} 
-            placeholder="Shelf life in months"
-          />
-        </div>
-        {!product && (
-          <div className="space-y-2">
-            <Label>Opening Stock (in units)</Label>
-            <Input type="number" step="0.001" value={formData.opening_stock} onChange={(e) => setFormData({ ...formData, opening_stock: parseFloat(e.target.value) || 0 })} />
-          </div>
+        <Select 
+          value={formData.dosage_form} 
+          onValueChange={(v) => setFormData({ ...formData, dosage_form: v })}
+        >
+          <SelectTrigger className="w-full">
+            <SelectValue placeholder="ডোজ ফর্ম সিলেক্ট করুন..." />
+          </SelectTrigger>
+          <SelectContent>
+            {DOSAGE_FORMS.map(d => (
+              <SelectItem key={d} value={d}>
+                {DOSAGE_FORM_LABELS[d] || d} ({d})
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+        {!formData.dosage_form && (
+          <p className="text-xs text-muted-foreground mt-2">
+            ডোজ ফর্ম সিলেক্ট করলে সংশ্লিষ্ট ফিল্ড ও ইউনিট অটোমেটিক সেট হবে
+          </p>
         )}
       </div>
 
-      <div className="space-y-2">
-        <Label>Description</Label>
-        <Input value={formData.description} onChange={(e) => setFormData({ ...formData, description: e.target.value })} placeholder="Optional product description" />
-      </div>
+      {/* Rest of form shows only after dosage form is selected */}
+      {formData.dosage_form && (
+        <>
+          <div className="grid grid-cols-2 gap-4">
+            <div className="space-y-2">
+              <Label>Name / নাম *</Label>
+              <Input value={formData.name} onChange={(e) => setFormData({ ...formData, name: e.target.value })} required />
+            </div>
+            <div className="space-y-2">
+              <Label>SKU *</Label>
+              <Input value={formData.sku} onChange={(e) => setFormData({ ...formData, sku: e.target.value })} required />
+            </div>
+            
+            {/* Category - Auto-set based on dosage form */}
+            <div className="space-y-2">
+              <Label>Category / ক্যাটাগরি</Label>
+              <Select value={formData.category} onValueChange={(v) => setFormData({ ...formData, category: v })}>
+                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  {CATEGORIES.map(c => (
+                    <SelectItem key={c} value={c}>
+                      {CATEGORY_LABELS[c] || c} ({c})
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <p className="text-xs text-muted-foreground">ডোজ ফর্ম থেকে অটোমেটিক সেট</p>
+            </div>
 
-      {!product && (
-        <div className="border-t pt-4">
-          <div className="flex items-center justify-between mb-3">
-            <Label className="text-base">Bill of Materials (Optional)</Label>
-            <Button type="button" variant="outline" size="sm" onClick={() => setShowBom(!showBom)}>
-              {showBom ? 'Hide BOM' : 'Add BOM'}
-            </Button>
-          </div>
-          
-          {showBom && (
-            <div className="space-y-3">
-              {bomItems.length === 0 && (
-                <p className="text-sm text-muted-foreground p-3 border rounded-lg text-center">
-                  Add raw materials to create a BOM for this product
-                </p>
+            {/* Strength */}
+            <div className="space-y-2">
+              <Label>Strength / শক্তি</Label>
+              <Input 
+                value={formData.strength} 
+                onChange={(e) => setFormData({ ...formData, strength: e.target.value })} 
+                placeholder={dosageConfig?.strengthPlaceholder || 'e.g., 500mg'}
+              />
+            </div>
+
+            {/* Unit - Locked or allowed based on dosage form */}
+            <div className="space-y-2">
+              <Label>Unit / ইউনিট</Label>
+              {dosageConfig?.unitLocked ? (
+                <div>
+                  <Input value={formData.unit} disabled className="bg-muted" />
+                  <UnitLockedWarning dosageForm={DOSAGE_FORM_LABELS[formData.dosage_form]} />
+                </div>
+              ) : (
+                <Select value={formData.unit} onValueChange={(v) => setFormData({ ...formData, unit: v as UnitType })}>
+                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    {allowedUnits.map(u => <SelectItem key={u} value={u}>{u}</SelectItem>)}
+                  </SelectContent>
+                </Select>
               )}
-              {bomItems.map((item, index) => (
-                <div key={index} className="flex gap-2 items-end p-3 border rounded-lg">
-                  <div className="flex-1">
-                    <Label className="text-xs">Material</Label>
-                    <Select value={item.raw_material_id} onValueChange={(v) => updateBomItem(index, 'raw_material_id', v)}>
-                      <SelectTrigger><SelectValue placeholder="Select material" /></SelectTrigger>
-                      <SelectContent>
-                        {materials?.map(m => <SelectItem key={m.id} value={m.id}>{m.name} ({m.unit})</SelectItem>)}
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  <div className="w-24">
-                    <Label className="text-xs">Qty/Unit</Label>
-                    <Input type="number" step="0.0001" value={item.quantity_per_unit} onChange={(e) => updateBomItem(index, 'quantity_per_unit', parseFloat(e.target.value) || 0)} />
-                  </div>
-                  <div className="w-20">
-                    <Label className="text-xs">Wastage %</Label>
-                    <Input type="number" step="0.01" value={item.wastage_percent} onChange={(e) => updateBomItem(index, 'wastage_percent', parseFloat(e.target.value) || 0)} />
-                  </div>
-                  <Button type="button" size="icon" variant="ghost" onClick={() => removeBomItem(index)}>
-                    <X className="h-4 w-4" />
+            </div>
+
+            {/* Units per pack - Label changes based on dosage form */}
+            <div className="space-y-2">
+              <Label>{dosageConfig?.unitsPerPackLabel || 'Units per Pack'}</Label>
+              <Input 
+                type="number" 
+                step="1" 
+                min="1"
+                value={formData.units_per_pack} 
+                onChange={(e) => setFormData({ ...formData, units_per_pack: parseInt(e.target.value) || 1 })} 
+              />
+              <p className="text-xs text-muted-foreground">{dosageConfig?.unitsPerPackDescription}</p>
+            </div>
+
+            <div className="space-y-2">
+              <Label>Selling Price / বিক্রয় মূল্য</Label>
+              <Input type="number" step="0.01" value={formData.selling_price} onChange={(e) => setFormData({ ...formData, selling_price: parseFloat(e.target.value) || 0 })} />
+            </div>
+            <div className="space-y-2">
+              <Label>Min Stock Level / মিনিমাম স্টক</Label>
+              <Input type="number" step="0.001" value={formData.min_stock_level} onChange={(e) => setFormData({ ...formData, min_stock_level: parseFloat(e.target.value) || 0 })} />
+            </div>
+            <div className="space-y-2">
+              <Label>Batch Size / ব্যাচ সাইজ</Label>
+              <Input 
+                type="number" 
+                step="1" 
+                min="1"
+                value={formData.batch_size || ''} 
+                onChange={(e) => setFormData({ ...formData, batch_size: e.target.value ? parseInt(e.target.value) : null })} 
+                placeholder={dosageConfig?.batchSizeSuggestion || 'Standard production batch size'}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label>Shelf Life (months) / মেয়াদ</Label>
+              <Input 
+                type="number" 
+                step="1" 
+                min="1"
+                value={formData.shelf_life_months || ''} 
+                onChange={(e) => setFormData({ ...formData, shelf_life_months: e.target.value ? parseInt(e.target.value) : null })} 
+                placeholder="Shelf life in months"
+              />
+            </div>
+            {!product && (
+              <div className="space-y-2">
+                <Label>Opening Stock (in units)</Label>
+                <Input type="number" step="0.001" value={formData.opening_stock} onChange={(e) => setFormData({ ...formData, opening_stock: parseFloat(e.target.value) || 0 })} />
+              </div>
+            )}
+          </div>
+
+          {/* Dosage Form Specific Packaging Fields */}
+          {dosageConfig && (
+            <DosageFormFields 
+              config={dosageConfig} 
+              packagingData={packagingData} 
+              onPackagingChange={handlePackagingChange} 
+            />
+          )}
+
+          <div className="space-y-2">
+            <Label>Description / বিবরণ</Label>
+            <Input value={formData.description} onChange={(e) => setFormData({ ...formData, description: e.target.value })} placeholder="Optional product description" />
+          </div>
+
+          {!product && (
+            <div className="border-t pt-4">
+              <div className="flex items-center justify-between mb-3">
+                <Label className="text-base">Bill of Materials (Optional)</Label>
+                <Button type="button" variant="outline" size="sm" onClick={() => setShowBom(!showBom)}>
+                  {showBom ? 'Hide BOM' : 'Add BOM'}
+                </Button>
+              </div>
+              
+              {showBom && (
+                <div className="space-y-3">
+                  {bomItems.length === 0 && (
+                    <p className="text-sm text-muted-foreground p-3 border rounded-lg text-center">
+                      Add raw materials to create a BOM for this product
+                    </p>
+                  )}
+                  {bomItems.map((item, index) => (
+                    <div key={index} className="flex gap-2 items-end p-3 border rounded-lg">
+                      <div className="flex-1">
+                        <Label className="text-xs">Material</Label>
+                        <Select value={item.raw_material_id} onValueChange={(v) => updateBomItem(index, 'raw_material_id', v)}>
+                          <SelectTrigger><SelectValue placeholder="Select material" /></SelectTrigger>
+                          <SelectContent>
+                            {materials?.map(m => <SelectItem key={m.id} value={m.id}>{m.name} ({m.unit})</SelectItem>)}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                      <div className="w-24">
+                        <Label className="text-xs">Qty/Unit</Label>
+                        <Input type="number" step="0.0001" value={item.quantity_per_unit} onChange={(e) => updateBomItem(index, 'quantity_per_unit', parseFloat(e.target.value) || 0)} />
+                      </div>
+                      <div className="w-20">
+                        <Label className="text-xs">Wastage %</Label>
+                        <Input type="number" step="0.01" value={item.wastage_percent} onChange={(e) => updateBomItem(index, 'wastage_percent', parseFloat(e.target.value) || 0)} />
+                      </div>
+                      <Button type="button" size="icon" variant="ghost" onClick={() => removeBomItem(index)}>
+                        <X className="h-4 w-4" />
+                      </Button>
+                    </div>
+                  ))}
+                  <Button type="button" variant="outline" size="sm" onClick={addBomItem}>
+                    <Plus className="h-3 w-3 mr-1" /> Add Material
                   </Button>
                 </div>
-              ))}
-              <Button type="button" variant="outline" size="sm" onClick={addBomItem}>
-                <Plus className="h-3 w-3 mr-1" /> Add Material
-              </Button>
+              )}
             </div>
           )}
-        </div>
+        </>
       )}
 
       <div className="flex justify-end gap-2 pt-4 border-t">
         <Button type="button" variant="outline" onClick={onClose}>Cancel</Button>
-        <Button type="submit" disabled={createProduct.isPending || updateProduct.isPending}>
+        <Button type="submit" disabled={!formData.dosage_form || createProduct.isPending || updateProduct.isPending}>
           {product ? 'Update' : 'Create'}
         </Button>
       </div>
@@ -359,6 +462,7 @@ function ProductBOMDialog({ productId, productName }: { productId: string; produ
     </DialogContent>
   );
 }
+
 
 export default function ProductsPage() {
   const { data: products, isLoading } = useProducts();
