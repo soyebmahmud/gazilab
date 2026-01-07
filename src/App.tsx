@@ -56,7 +56,6 @@ const App = () => (
           <Route path="/backup" element={<ProtectedRoute><BackupRestorePage /></ProtectedRoute>} />
           <Route path="/ai-hub" element={<ProtectedRoute><AIHubPage /></ProtectedRoute>} />
           <Route path="*" element={<NotFound />} />
-          <Route path="*" element={<NotFound />} />
         </Routes>
       </BrowserRouter>
     </TooltipProvider>
