@@ -36,7 +36,9 @@ function MaterialForm({ material, onClose }: { material?: RawMaterial; onClose: 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (material) {
-      await updateMaterial.mutateAsync({ id: material.id, ...formData });
+      // Exclude opening_stock when updating - it's only for create
+      const { opening_stock, ...updateData } = formData;
+      await updateMaterial.mutateAsync({ id: material.id, ...updateData });
     } else {
       await createMaterial.mutateAsync(formData);
     }
