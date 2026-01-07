@@ -2,11 +2,13 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { RawMaterial, MaterialUsage, CanDeleteMaterial } from '@/types/database';
 import { toast } from 'sonner';
+import { ensureValidSession } from './useSupabaseQuery';
 
 export function useRawMaterials() {
   return useQuery({
     queryKey: ['raw-materials'],
     queryFn: async () => {
+      await ensureValidSession();
       const { data, error } = await supabase
         .from('raw_materials')
         .select('*')
@@ -23,6 +25,7 @@ export function useRawMaterial(id: string) {
   return useQuery({
     queryKey: ['raw-material', id],
     queryFn: async () => {
+      await ensureValidSession();
       const { data, error } = await supabase
         .from('raw_materials')
         .select('*')
@@ -41,6 +44,12 @@ export function useCreateRawMaterial() {
   
   return useMutation({
     mutationFn: async (material: Omit<RawMaterial, 'id' | 'current_stock' | 'created_at' | 'updated_at'> & { opening_stock?: number }) => {
+      // Ensure valid session before mutation
+      const isValid = await ensureValidSession();
+      if (!isValid) {
+        throw new Error('Session expired. Please log in again.');
+      }
+      
       const { opening_stock, ...materialData } = material;
       
       // Create the material
@@ -85,6 +94,11 @@ export function useUpdateRawMaterial() {
   
   return useMutation({
     mutationFn: async ({ id, ...updates }: Partial<RawMaterial> & { id: string }) => {
+      const isValid = await ensureValidSession();
+      if (!isValid) {
+        throw new Error('Session expired. Please log in again.');
+      }
+      
       const { data, error } = await supabase
         .from('raw_materials')
         .update(updates)
@@ -109,6 +123,7 @@ export function useMaterialUsage(materialId: string) {
   return useQuery({
     queryKey: ['material-usage', materialId],
     queryFn: async () => {
+      await ensureValidSession();
       const { data, error } = await supabase
         .rpc('get_material_usage', { material_id: materialId });
       
@@ -123,6 +138,7 @@ export function useCanDeleteMaterial(materialId: string) {
   return useQuery({
     queryKey: ['can-delete-material', materialId],
     queryFn: async () => {
+      await ensureValidSession();
       const { data, error } = await supabase
         .rpc('can_delete_material', { material_id: materialId });
       
@@ -138,6 +154,11 @@ export function useDeleteRawMaterial() {
   
   return useMutation({
     mutationFn: async (id: string) => {
+      const isValid = await ensureValidSession();
+      if (!isValid) {
+        throw new Error('Session expired. Please log in again.');
+      }
+      
       // First check if can delete
       const { data: canDelete, error: checkError } = await supabase
         .rpc('can_delete_material', { material_id: id });
@@ -172,6 +193,7 @@ export function useDeletedRawMaterials() {
   return useQuery({
     queryKey: ['deleted-raw-materials'],
     queryFn: async () => {
+      await ensureValidSession();
       const { data, error } = await supabase
         .from('raw_materials')
         .select('*')
@@ -189,6 +211,11 @@ export function useRestoreRawMaterial() {
   
   return useMutation({
     mutationFn: async (id: string) => {
+      const isValid = await ensureValidSession();
+      if (!isValid) {
+        throw new Error('Session expired. Please log in again.');
+      }
+      
       const { error } = await supabase
         .from('raw_materials')
         .update({ is_active: true })

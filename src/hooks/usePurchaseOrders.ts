@@ -1,6 +1,7 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
+import { ensureValidSession } from './useSupabaseQuery';
 
 export interface PurchaseOrder {
   id: string;
@@ -45,6 +46,7 @@ export function usePurchaseOrders() {
   return useQuery({
     queryKey: ['purchase-orders'],
     queryFn: async () => {
+      await ensureValidSession();
       const { data, error } = await supabase
         .from('purchase_orders')
         .select(`
@@ -67,6 +69,7 @@ export function usePurchaseOrder(id: string) {
   return useQuery({
     queryKey: ['purchase-order', id],
     queryFn: async () => {
+      await ensureValidSession();
       const { data, error } = await supabase
         .from('purchase_orders')
         .select(`
@@ -106,6 +109,11 @@ export function useCreatePurchaseOrder() {
   
   return useMutation({
     mutationFn: async (data: CreatePOData) => {
+      const isValid = await ensureValidSession();
+      if (!isValid) {
+        throw new Error('Session expired. Please log in again.');
+      }
+      
       // Generate PO number
       const { data: orderNumber, error: poError } = await supabase
         .rpc('generate_po_number');
@@ -186,6 +194,11 @@ export function useReceivePOItems() {
         cost_per_unit: number;
       }[] 
     }) => {
+      const isValid = await ensureValidSession();
+      if (!isValid) {
+        throw new Error('Session expired. Please log in again.');
+      }
+      
       for (const item of items) {
         // Create raw material batch
         const { data: batch, error: batchError } = await supabase
@@ -254,6 +267,11 @@ export function useUpdatePOStatus() {
   
   return useMutation({
     mutationFn: async ({ poId, status }: { poId: string; status: string }) => {
+      const isValid = await ensureValidSession();
+      if (!isValid) {
+        throw new Error('Session expired. Please log in again.');
+      }
+      
       const { error } = await supabase
         .from('purchase_orders')
         .update({ status })

@@ -2,11 +2,13 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { Sale, SaleItem, ProductBatch } from '@/types/database';
 import { toast } from 'sonner';
+import { ensureValidSession } from './useSupabaseQuery';
 
 export function useSales() {
   return useQuery({
     queryKey: ['sales'],
     queryFn: async () => {
+      await ensureValidSession();
       const { data, error } = await supabase
         .from('sales')
         .select(`
@@ -29,6 +31,7 @@ export function useSale(id: string) {
   return useQuery({
     queryKey: ['sale', id],
     queryFn: async () => {
+      await ensureValidSession();
       const { data, error } = await supabase
         .from('sales')
         .select(`
@@ -54,6 +57,7 @@ export function useProductBatches(productId: string) {
   return useQuery({
     queryKey: ['product-batches', productId],
     queryFn: async () => {
+      await ensureValidSession();
       const { data, error } = await supabase
         .rpc('get_product_batches', { p_product_id: productId });
       
@@ -88,6 +92,12 @@ export function useCreateSale() {
   
   return useMutation({
     mutationFn: async (data: CreateSaleData) => {
+      // Ensure valid session before mutation
+      const isValid = await ensureValidSession();
+      if (!isValid) {
+        throw new Error('Session expired. Please log in again.');
+      }
+      
       // Use manual invoice number if provided, otherwise auto-generate
       let invoiceNumber = data.manual_invoice_number?.trim();
       

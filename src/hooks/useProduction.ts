@@ -2,11 +2,13 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { ProductionBatch, BOMItem } from '@/types/database';
 import { toast } from 'sonner';
+import { ensureValidSession } from './useSupabaseQuery';
 
 export function useProductionBatches() {
   return useQuery({
     queryKey: ['production-batches'],
     queryFn: async () => {
+      await ensureValidSession();
       const { data, error } = await supabase
         .from('production_batches')
         .select(`
@@ -32,6 +34,7 @@ export function useProductionBatch(id: string) {
   return useQuery({
     queryKey: ['production-batch', id],
     queryFn: async () => {
+      await ensureValidSession();
       const { data, error } = await supabase
         .from('production_batches')
         .select(`
@@ -79,6 +82,12 @@ export function useCreateProduction() {
   
   return useMutation({
     mutationFn: async (data: CreateProductionData) => {
+      // Ensure valid session before mutation
+      const isValid = await ensureValidSession();
+      if (!isValid) {
+        throw new Error('Session expired. Please log in again.');
+      }
+      
       // Use hierarchical BOM to validate stock if packaging config is provided
       if (data.packaging_config_id) {
         const { data: hierarchicalBom, error: bomError } = await supabase
@@ -167,6 +176,11 @@ export function useStartProduction() {
   
   return useMutation({
     mutationFn: async (batchId: string) => {
+      const isValid = await ensureValidSession();
+      if (!isValid) {
+        throw new Error('Session expired. Please log in again.');
+      }
+      
       // Get batch with BOM items
       const { data: batch, error: batchError } = await supabase
         .from('production_batches')
@@ -234,6 +248,11 @@ export function useCompleteProduction() {
   
   return useMutation({
     mutationFn: async ({ batchId, quantityProduced }: { batchId: string; quantityProduced: number }) => {
+      const isValid = await ensureValidSession();
+      if (!isValid) {
+        throw new Error('Session expired. Please log in again.');
+      }
+      
       // Get batch
       const { data: batch, error: batchError } = await supabase
         .from('production_batches')

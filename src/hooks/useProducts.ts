@@ -2,11 +2,13 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { Product, BOMItem } from '@/types/database';
 import { toast } from 'sonner';
+import { ensureValidSession } from './useSupabaseQuery';
 
 export function useProducts() {
   return useQuery({
     queryKey: ['products'],
     queryFn: async () => {
+      await ensureValidSession();
       const { data, error } = await supabase
         .from('products')
         .select('*')
@@ -23,6 +25,7 @@ export function useProduct(id: string) {
   return useQuery({
     queryKey: ['product', id],
     queryFn: async () => {
+      await ensureValidSession();
       const { data, error } = await supabase
         .from('products')
         .select('*')
@@ -46,6 +49,12 @@ export function useCreateProduct() {
   
   return useMutation({
     mutationFn: async ({ product, bomItems }: CreateProductData) => {
+      // Ensure valid session before mutation
+      const isValid = await ensureValidSession();
+      if (!isValid) {
+        throw new Error('Session expired. Please log in again.');
+      }
+      
       const { opening_stock, ...productData } = product;
       
       // Create the product
@@ -120,6 +129,11 @@ export function useUpdateProduct() {
   
   return useMutation({
     mutationFn: async ({ id, ...updates }: Partial<Product> & { id: string }) => {
+      const isValid = await ensureValidSession();
+      if (!isValid) {
+        throw new Error('Session expired. Please log in again.');
+      }
+      
       const { data, error } = await supabase
         .from('products')
         .update(updates)
@@ -145,6 +159,11 @@ export function useDeleteProduct() {
   
   return useMutation({
     mutationFn: async (id: string) => {
+      const isValid = await ensureValidSession();
+      if (!isValid) {
+        throw new Error('Session expired. Please log in again.');
+      }
+      
       const { error } = await supabase
         .from('products')
         .update({ is_active: false })
@@ -167,6 +186,7 @@ export function useDeletedProducts() {
   return useQuery({
     queryKey: ['deleted-products'],
     queryFn: async () => {
+      await ensureValidSession();
       const { data, error } = await supabase
         .from('products')
         .select('*')
@@ -184,6 +204,11 @@ export function useRestoreProduct() {
   
   return useMutation({
     mutationFn: async (id: string) => {
+      const isValid = await ensureValidSession();
+      if (!isValid) {
+        throw new Error('Session expired. Please log in again.');
+      }
+      
       const { error } = await supabase
         .from('products')
         .update({ is_active: true })
