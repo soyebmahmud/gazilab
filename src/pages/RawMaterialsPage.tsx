@@ -10,16 +10,60 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Badge } from '@/components/ui/badge';
 import { useRawMaterials, useCreateRawMaterial, useUpdateRawMaterial, useDeleteRawMaterial, useMaterialUsage, useCanDeleteMaterial, useDeletedRawMaterials, useRestoreRawMaterial } from '@/hooks/useRawMaterials';
 import { RawMaterial, MaterialCategory, UnitType } from '@/types/database';
-import { Plus, Pencil, Trash2, Eye, AlertTriangle, RotateCcw, Archive, PackagePlus, Search, X } from 'lucide-react';
-import { useState, useMemo } from 'react';
+import { Plus, Pencil, Trash2, Eye, AlertTriangle, RotateCcw, Archive, PackagePlus, Search, X, Info } from 'lucide-react';
+import { useState, useMemo, useEffect } from 'react';
 import { AddStockDialog } from '@/components/AddStockDialog';
+import { toast } from 'sonner';
 
 const CATEGORIES: MaterialCategory[] = ['herbs', 'chemicals', 'packaging'];
-const UNITS: UnitType[] = ['kg', 'g', 'l', 'ml', 'pcs', 'box', 'pack'];
+
+const CATEGORY_LABELS: Record<MaterialCategory, string> = {
+  herbs: 'ভেষজ (Herbs)',
+  chemicals: 'রাসায়নিক (Chemicals)',
+  packaging: 'প্যাকেজিং (Packaging)'
+};
+
+// Category-based allowed units
+const CATEGORY_UNITS: Record<MaterialCategory, UnitType[]> = {
+  herbs: ['kg', 'g'],
+  chemicals: ['kg', 'g', 'ml', 'l'],
+  packaging: ['pcs', 'box', 'pack']
+};
+
+const UNIT_LABELS: Record<UnitType, string> = {
+  kg: 'কেজি (kg)',
+  g: 'গ্রাম (g)',
+  l: 'লিটার (l)',
+  ml: 'মিলিলিটার (ml)',
+  pcs: 'পিস (pcs)',
+  box: 'বক্স (box)',
+  pack: 'প্যাক (pack)'
+};
+
+// Packaging levels for packaging category
+type PackagingLevel = 'primary' | 'secondary' | 'tertiary';
+const PACKAGING_LEVELS: { value: PackagingLevel; label: string; examples: string }[] = [
+  { value: 'primary', label: 'প্রাইমারি (Primary)', examples: 'বোতল, স্ট্রিপ, ব্লিস্টার, টিউব' },
+  { value: 'secondary', label: 'সেকেন্ডারি (Secondary)', examples: 'বক্স, কার্টন' },
+  { value: 'tertiary', label: 'টারশিয়ারি (Tertiary)', examples: 'শিপার কার্টন' }
+];
+
+// Parse packaging data from description
+function parsePackagingData(description: string): { packagingLevel?: PackagingLevel; conversionNote?: string } {
+  try {
+    if (description?.startsWith('{')) {
+      return JSON.parse(description);
+    }
+  } catch {}
+  return {};
+}
 
 function MaterialForm({ material, onClose }: { material?: RawMaterial; onClose: () => void }) {
   const createMaterial = useCreateRawMaterial();
   const updateMaterial = useUpdateRawMaterial();
+  
+  const existingPackagingData = material ? parsePackagingData(material.description || '') : {};
+  
   const [formData, setFormData] = useState({
     name: material?.name || '',
     sku: material?.sku || '',
@@ -28,79 +72,165 @@ function MaterialForm({ material, onClose }: { material?: RawMaterial; onClose: 
     cost_per_unit: material?.cost_per_unit || 0,
     min_stock_level: material?.min_stock_level || 0,
     opening_stock: 0,
-    description: material?.description || '',
+    description: material?.description?.startsWith('{') ? '' : (material?.description || ''),
     supplier: material?.supplier || '',
     is_active: material?.is_active ?? true
   });
 
+  // Packaging-specific fields
+  const [packagingLevel, setPackagingLevel] = useState<PackagingLevel | ''>(existingPackagingData.packagingLevel || '');
+  const [conversionNote, setConversionNote] = useState(existingPackagingData.conversionNote || '');
+
+  // Get allowed units for current category
+  const allowedUnits = CATEGORY_UNITS[formData.category];
+
+  // Auto-reset unit when category changes
+  useEffect(() => {
+    if (!allowedUnits.includes(formData.unit)) {
+      setFormData(prev => ({ ...prev, unit: allowedUnits[0] }));
+    }
+    // Reset packaging fields if not packaging
+    if (formData.category !== 'packaging') {
+      setPackagingLevel('');
+      setConversionNote('');
+    }
+  }, [formData.category, allowedUnits]);
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    
+    // Validation: packaging cannot use kg/g/ml/l
+    if (formData.category === 'packaging' && ['kg', 'g', 'ml', 'l'].includes(formData.unit)) {
+      toast.error('প্যাকেজিং ম্যাটেরিয়াল kg/g/ml/l ইউনিটে হতে পারে না');
+      return;
+    }
+
+    // Build description with packaging data if applicable
+    let finalDescription = formData.description;
+    if (formData.category === 'packaging') {
+      const packagingData = {
+        packagingLevel: packagingLevel || undefined,
+        conversionNote: conversionNote || undefined,
+        userDescription: formData.description || undefined
+      };
+      finalDescription = JSON.stringify(packagingData);
+    }
+
+    const submitData = { ...formData, description: finalDescription };
+
     if (material) {
-      // Exclude opening_stock when updating - it's only for create
-      const { opening_stock, ...updateData } = formData;
+      const { opening_stock, ...updateData } = submitData;
       await updateMaterial.mutateAsync({ id: material.id, ...updateData });
     } else {
-      await createMaterial.mutateAsync(formData);
+      await createMaterial.mutateAsync(submitData);
     }
     onClose();
   };
+
+  const isPackaging = formData.category === 'packaging';
 
   return (
     <form onSubmit={handleSubmit} className="space-y-4">
       <div className="grid grid-cols-2 gap-4">
         <div className="space-y-2">
-          <Label>Name *</Label>
+          <Label>নাম (Name) *</Label>
           <Input value={formData.name} onChange={(e) => setFormData({ ...formData, name: e.target.value })} required />
         </div>
         <div className="space-y-2">
           <Label>SKU *</Label>
           <Input value={formData.sku} onChange={(e) => setFormData({ ...formData, sku: e.target.value })} required />
         </div>
+        
+        {/* Category - Primary Selection */}
         <div className="space-y-2">
-          <Label>Category</Label>
+          <Label>ক্যাটাগরি (Category) *</Label>
           <Select value={formData.category} onValueChange={(v) => setFormData({ ...formData, category: v as MaterialCategory })}>
             <SelectTrigger><SelectValue /></SelectTrigger>
             <SelectContent>
-              {CATEGORIES.map(c => <SelectItem key={c} value={c}>{c}</SelectItem>)}
+              {CATEGORIES.map(c => <SelectItem key={c} value={c}>{CATEGORY_LABELS[c]}</SelectItem>)}
             </SelectContent>
           </Select>
         </div>
+        
+        {/* Unit - Filtered by Category */}
         <div className="space-y-2">
-          <Label>Unit</Label>
+          <Label>ইউনিট (Unit) *</Label>
           <Select value={formData.unit} onValueChange={(v) => setFormData({ ...formData, unit: v as UnitType })}>
             <SelectTrigger><SelectValue /></SelectTrigger>
             <SelectContent>
-              {UNITS.map(u => <SelectItem key={u} value={u}>{u}</SelectItem>)}
+              {allowedUnits.map(u => <SelectItem key={u} value={u}>{UNIT_LABELS[u]}</SelectItem>)}
             </SelectContent>
           </Select>
+          {isPackaging && (
+            <p className="text-xs text-muted-foreground flex items-center gap-1">
+              <Info className="h-3 w-3" />
+              প্যাকেজিং শুধুমাত্র pcs/box/pack এ হবে
+            </p>
+          )}
         </div>
+
+        {/* Packaging Level - Only for packaging category */}
+        {isPackaging && (
+          <div className="space-y-2 col-span-2">
+            <Label>প্যাকেজিং লেভেল (Packaging Level)</Label>
+            <Select value={packagingLevel} onValueChange={(v) => setPackagingLevel(v as PackagingLevel)}>
+              <SelectTrigger><SelectValue placeholder="লেভেল সিলেক্ট করুন" /></SelectTrigger>
+              <SelectContent>
+                {PACKAGING_LEVELS.map(p => (
+                  <SelectItem key={p.value} value={p.value}>
+                    <div>
+                      <span>{p.label}</span>
+                      <span className="text-xs text-muted-foreground ml-2">({p.examples})</span>
+                    </div>
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+        )}
+
+        {/* Conversion Note - Only for packaging */}
+        {isPackaging && (
+          <div className="space-y-2 col-span-2">
+            <Label>কনভার্সন নোট (Optional)</Label>
+            <Input 
+              value={conversionNote} 
+              onChange={(e) => setConversionNote(e.target.value)}
+              placeholder="যেমন: ১ বক্স = ১০ বোতল, ১ কার্টন = ২০ বক্স"
+            />
+            <p className="text-xs text-muted-foreground">
+              ভবিষ্যতে সেলস এবং প্রডাকশনে কনভার্সন করতে সাহায্য করবে
+            </p>
+          </div>
+        )}
+
         <div className="space-y-2">
-          <Label>Cost per Unit</Label>
+          <Label>প্রতি ইউনিট খরচ (Cost/Unit)</Label>
           <Input type="number" step="0.01" value={formData.cost_per_unit} onChange={(e) => setFormData({ ...formData, cost_per_unit: parseFloat(e.target.value) || 0 })} />
         </div>
         <div className="space-y-2">
-          <Label>Min Stock Level</Label>
+          <Label>মিনিমাম স্টক লেভেল</Label>
           <Input type="number" step="0.001" value={formData.min_stock_level} onChange={(e) => setFormData({ ...formData, min_stock_level: parseFloat(e.target.value) || 0 })} />
         </div>
         {!material && (
           <div className="space-y-2">
-            <Label>Opening Stock</Label>
+            <Label>ওপেনিং স্টক</Label>
             <Input type="number" step="0.001" value={formData.opening_stock} onChange={(e) => setFormData({ ...formData, opening_stock: parseFloat(e.target.value) || 0 })} />
           </div>
         )}
         <div className="space-y-2">
-          <Label>Supplier</Label>
+          <Label>সরবরাহকারী (Supplier)</Label>
           <Input value={formData.supplier} onChange={(e) => setFormData({ ...formData, supplier: e.target.value })} />
         </div>
       </div>
       <div className="space-y-2">
-        <Label>Description</Label>
+        <Label>বিবরণ (Description)</Label>
         <Input value={formData.description} onChange={(e) => setFormData({ ...formData, description: e.target.value })} />
       </div>
       <div className="flex justify-end gap-2">
-        <Button type="button" variant="outline" onClick={onClose}>Cancel</Button>
+        <Button type="button" variant="outline" onClick={onClose}>বাতিল</Button>
         <Button type="submit" disabled={createMaterial.isPending || updateMaterial.isPending}>
-          {material ? 'Update' : 'Create'}
+          {material ? 'আপডেট করুন' : 'তৈরি করুন'}
         </Button>
       </div>
     </form>
