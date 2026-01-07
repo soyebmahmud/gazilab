@@ -23,6 +23,7 @@ import ExpiryAlertsPage from "./pages/ExpiryAlertsPage";
 import AIHubPage from "./pages/AIHubPage";
 import BankAccountsPage from "./pages/BankAccountsPage";
 import ExpensesPage from "./pages/ExpensesPage";
+import PriceListPage from "./pages/PriceListPage";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -51,8 +52,10 @@ const App = () => (
           <Route path="/reports" element={<ProtectedRoute><ReportsPage /></ProtectedRoute>} />
           <Route path="/bank-accounts" element={<ProtectedRoute><BankAccountsPage /></ProtectedRoute>} />
           <Route path="/expenses" element={<ProtectedRoute><ExpensesPage /></ProtectedRoute>} />
+          <Route path="/price-list" element={<ProtectedRoute><PriceListPage /></ProtectedRoute>} />
           <Route path="/backup" element={<ProtectedRoute><BackupRestorePage /></ProtectedRoute>} />
           <Route path="/ai-hub" element={<ProtectedRoute><AIHubPage /></ProtectedRoute>} />
+          <Route path="*" element={<NotFound />} />
           <Route path="*" element={<NotFound />} />
         </Routes>
       </BrowserRouter>
