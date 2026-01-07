@@ -293,10 +293,10 @@ export function PackagingConfigDialog({
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
                   <Label className="text-xs">প্যাক টাইপ</Label>
-                  <Select value={secondaryPackType} onValueChange={(v) => setSecondaryPackType(v as PackagingUnit)}>
+                  <Select value={secondaryPackType || "none"} onValueChange={(v) => setSecondaryPackType(v === "none" ? '' : v as PackagingUnit)}>
                     <SelectTrigger><SelectValue placeholder="নির্বাচন করুন" /></SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="">ব্যবহার করবেন না</SelectItem>
+                      <SelectItem value="none">ব্যবহার করবেন না</SelectItem>
                       {SECONDARY_UNITS.map(u => (
                         <SelectItem key={u} value={u}>{PACKAGING_UNIT_LABELS[u]}</SelectItem>
                       ))}
@@ -333,10 +333,10 @@ export function PackagingConfigDialog({
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
                   <Label className="text-xs">প্যাক টাইপ</Label>
-                  <Select value={tertiaryPackType} onValueChange={(v) => setTertiaryPackType(v as PackagingUnit)}>
+                  <Select value={tertiaryPackType || "none"} onValueChange={(v) => setTertiaryPackType(v === "none" ? '' : v as PackagingUnit)}>
                     <SelectTrigger><SelectValue placeholder="নির্বাচন করুন" /></SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="">ব্যবহার করবেন না</SelectItem>
+                      <SelectItem value="none">ব্যবহার করবেন না</SelectItem>
                       {TERTIARY_UNITS.map(u => (
                         <SelectItem key={u} value={u}>{PACKAGING_UNIT_LABELS[u]}</SelectItem>
                       ))}
