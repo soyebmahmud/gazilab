@@ -1,7 +1,7 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
-import { ensureValidSession } from './useSupabaseQuery';
+import { ensureValidSession, withJwtRefreshRetry } from './useSupabaseQuery';
 
 export interface ExpenseCategory {
   id: string;
@@ -30,12 +30,16 @@ export function useExpenseCategories() {
   return useQuery({
     queryKey: ['expense-categories'],
     queryFn: async () => {
-      await ensureValidSession();
-      const { data, error } = await supabase
-        .from('expense_categories')
-        .select('*')
-        .eq('is_active', true)
-        .order('name');
+      const isValid = await ensureValidSession();
+      if (!isValid) throw new Error('Session expired. Please log in again.');
+
+      const { data, error } = await withJwtRefreshRetry(async () =>
+        await supabase
+          .from('expense_categories')
+          .select('*')
+          .eq('is_active', true)
+          .order('name')
+      );
       if (error) throw error;
       return data as ExpenseCategory[];
     },
@@ -46,7 +50,9 @@ export function useExpenses(dateFrom?: string, dateTo?: string) {
   return useQuery({
     queryKey: ['expenses', dateFrom, dateTo],
     queryFn: async () => {
-      await ensureValidSession();
+      const isValid = await ensureValidSession();
+      if (!isValid) throw new Error('Session expired. Please log in again.');
+
       let query = supabase
         .from('expenses')
         .select(`
@@ -63,13 +69,12 @@ export function useExpenses(dateFrom?: string, dateTo?: string) {
         query = query.lte('expense_date', dateTo);
       }
       
-      const { data, error } = await query;
+      const { data, error } = await withJwtRefreshRetry(async () => await query);
       if (error) throw error;
       return data as Expense[];
     },
   });
 }
-
 
 interface CreateExpenseData {
   category_id: string;
@@ -88,46 +93,50 @@ export function useCreateExpense() {
   return useMutation({
     mutationFn: async (data: CreateExpenseData) => {
       const isValid = await ensureValidSession();
-      if (!isValid) {
-        throw new Error('Session expired. Please log in again.');
-      }
+      if (!isValid) throw new Error('Session expired. Please log in again.');
       
-      const { data: expense, error } = await supabase
-        .from('expenses')
-        .insert(data)
-        .select()
-        .single();
+      const { data: expense, error } = await withJwtRefreshRetry(async () =>
+        await supabase
+          .from('expenses')
+          .insert(data)
+          .select()
+          .single()
+      );
       
       if (error) throw error;
 
-      // If paid via bank, record the transaction
-      if (data.bank_account_id && data.payment_method === 'bank') {
-        const { error: txError } = await supabase
-          .from('bank_transactions')
-          .insert({
-            bank_account_id: data.bank_account_id,
-            transaction_type: 'withdrawal',
-            amount: data.amount,
-            transaction_date: data.expense_date,
-            reference_type: 'expense',
-            reference_id: expense.id,
-            description: data.description || 'Expense payment',
-          });
+      if (data.bank_account_id && data.payment_method === 'bank' && expense) {
+        const { error: txError } = await withJwtRefreshRetry(async () =>
+          await supabase
+            .from('bank_transactions')
+            .insert({
+              bank_account_id: data.bank_account_id,
+              transaction_type: 'withdrawal',
+              amount: data.amount,
+              transaction_date: data.expense_date,
+              reference_type: 'expense',
+              reference_id: expense.id,
+              description: data.description || 'Expense payment',
+            })
+        );
         
         if (txError) throw txError;
 
-        // Update bank balance directly
-        const { data: currentAccount } = await supabase
-          .from('bank_accounts')
-          .select('current_balance')
-          .eq('id', data.bank_account_id)
-          .single();
-        
-        if (currentAccount) {
+        const { data: currentAccount } = await withJwtRefreshRetry(async () =>
           await supabase
             .from('bank_accounts')
-            .update({ current_balance: currentAccount.current_balance - data.amount })
-            .eq('id', data.bank_account_id);
+            .select('current_balance')
+            .eq('id', data.bank_account_id!)
+            .single()
+        );
+        
+        if (currentAccount) {
+          await withJwtRefreshRetry(async () =>
+            await supabase
+              .from('bank_accounts')
+              .update({ current_balance: currentAccount.current_balance - data.amount })
+              .eq('id', data.bank_account_id!)
+          );
         }
       }
 
@@ -151,14 +160,14 @@ export function useDeleteExpense() {
   return useMutation({
     mutationFn: async (id: string) => {
       const isValid = await ensureValidSession();
-      if (!isValid) {
-        throw new Error('Session expired. Please log in again.');
-      }
+      if (!isValid) throw new Error('Session expired. Please log in again.');
       
-      const { error } = await supabase
-        .from('expenses')
-        .delete()
-        .eq('id', id);
+      const { error } = await withJwtRefreshRetry(async () =>
+        await supabase
+          .from('expenses')
+          .delete()
+          .eq('id', id)
+      );
       if (error) throw error;
     },
     onSuccess: () => {

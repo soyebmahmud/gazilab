@@ -11,8 +11,8 @@ export function useRawMaterials() {
       const isValid = await ensureValidSession();
       if (!isValid) throw new Error('Session expired. Please log in again.');
 
-      const { data, error } = await withJwtRefreshRetry(() =>
-        supabase
+      const { data, error } = await withJwtRefreshRetry(async () =>
+        await supabase
           .from('raw_materials')
           .select('*')
           .eq('is_active', true)
@@ -32,12 +32,12 @@ export function useRawMaterial(id: string) {
       const isValid = await ensureValidSession();
       if (!isValid) throw new Error('Session expired. Please log in again.');
 
-      const { data, error } = await withJwtRefreshRetry(() =>
-        supabase
+      const { data, error } = await withJwtRefreshRetry(async () =>
+        await supabase
           .from('raw_materials')
           .select('*')
           .eq('id', id)
-          .single()
+          .maybeSingle()
       );
 
       if (error) throw error;
@@ -57,8 +57,8 @@ export function useCreateRawMaterial() {
 
       const { opening_stock, ...materialData } = material;
 
-      const { data: newMaterial, error: materialError } = await withJwtRefreshRetry(() =>
-        supabase
+      const { data: newMaterial, error: materialError } = await withJwtRefreshRetry(async () =>
+        await supabase
           .from('raw_materials')
           .insert(materialData)
           .select()
@@ -67,12 +67,12 @@ export function useCreateRawMaterial() {
 
       if (materialError) throw materialError;
 
-      if (opening_stock && opening_stock > 0) {
-        const { error: ledgerError } = await withJwtRefreshRetry(() =>
-          supabase
+      if (opening_stock && opening_stock > 0 && newMaterial) {
+        const { error: ledgerError } = await withJwtRefreshRetry(async () =>
+          await supabase
             .from('stock_ledger_materials')
             .insert({
-              raw_material_id: (newMaterial as any).id,
+              raw_material_id: newMaterial.id,
               movement_type: 'opening',
               quantity: opening_stock,
               notes: 'Opening stock',
@@ -103,8 +103,8 @@ export function useUpdateRawMaterial() {
       const isValid = await ensureValidSession();
       if (!isValid) throw new Error('Session expired. Please log in again.');
 
-      const { data, error } = await withJwtRefreshRetry(() =>
-        supabase
+      const { data, error } = await withJwtRefreshRetry(async () =>
+        await supabase
           .from('raw_materials')
           .update(updates)
           .eq('id', id)
@@ -132,8 +132,8 @@ export function useMaterialUsage(materialId: string) {
       const isValid = await ensureValidSession();
       if (!isValid) throw new Error('Session expired. Please log in again.');
 
-      const { data, error } = await withJwtRefreshRetry(() =>
-        supabase.rpc('get_material_usage', { material_id: materialId })
+      const { data, error } = await withJwtRefreshRetry(async () =>
+        await supabase.rpc('get_material_usage', { material_id: materialId })
       );
 
       if (error) throw error;
@@ -150,8 +150,8 @@ export function useCanDeleteMaterial(materialId: string) {
       const isValid = await ensureValidSession();
       if (!isValid) throw new Error('Session expired. Please log in again.');
 
-      const { data, error } = await withJwtRefreshRetry(() =>
-        supabase.rpc('can_delete_material', { material_id: materialId })
+      const { data, error } = await withJwtRefreshRetry(async () =>
+        await supabase.rpc('can_delete_material', { material_id: materialId })
       );
 
       if (error) throw error;
@@ -169,8 +169,8 @@ export function useDeleteRawMaterial() {
       const isValid = await ensureValidSession();
       if (!isValid) throw new Error('Session expired. Please log in again.');
 
-      const { data: canDelete, error: checkError } = await withJwtRefreshRetry(() =>
-        supabase.rpc('can_delete_material', { material_id: id })
+      const { data: canDelete, error: checkError } = await withJwtRefreshRetry(async () =>
+        await supabase.rpc('can_delete_material', { material_id: id })
       );
 
       if (checkError) throw checkError;
@@ -180,8 +180,8 @@ export function useDeleteRawMaterial() {
         throw new Error(`Cannot delete: Used in ${result.usage_count} BOM(s) and has ${result.ledger_count} stock entries`);
       }
 
-      const { error } = await withJwtRefreshRetry(() =>
-        supabase
+      const { error } = await withJwtRefreshRetry(async () =>
+        await supabase
           .from('raw_materials')
           .update({ is_active: false })
           .eq('id', id)
@@ -207,8 +207,8 @@ export function useDeletedRawMaterials() {
       const isValid = await ensureValidSession();
       if (!isValid) throw new Error('Session expired. Please log in again.');
 
-      const { data, error } = await withJwtRefreshRetry(() =>
-        supabase
+      const { data, error } = await withJwtRefreshRetry(async () =>
+        await supabase
           .from('raw_materials')
           .select('*')
           .eq('is_active', false)
@@ -229,8 +229,8 @@ export function useRestoreRawMaterial() {
       const isValid = await ensureValidSession();
       if (!isValid) throw new Error('Session expired. Please log in again.');
 
-      const { error } = await withJwtRefreshRetry(() =>
-        supabase
+      const { error } = await withJwtRefreshRetry(async () =>
+        await supabase
           .from('raw_materials')
           .update({ is_active: true })
           .eq('id', id)
@@ -248,4 +248,3 @@ export function useRestoreRawMaterial() {
     },
   });
 }
-
