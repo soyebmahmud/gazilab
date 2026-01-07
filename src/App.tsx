@@ -25,7 +25,7 @@ import BankAccountsPage from "./pages/BankAccountsPage";
 import ExpensesPage from "./pages/ExpensesPage";
 import PriceListPage from "./pages/PriceListPage";
 import NotFound from "./pages/NotFound";
-
+import PackagingAssembliesPage from "./pages/PackagingAssembliesPage";
 const queryClient = new QueryClient();
 
 const App = () => (
@@ -55,7 +55,7 @@ const App = () => (
           <Route path="/price-list" element={<ProtectedRoute><PriceListPage /></ProtectedRoute>} />
           <Route path="/backup" element={<ProtectedRoute><BackupRestorePage /></ProtectedRoute>} />
           <Route path="/ai-hub" element={<ProtectedRoute><AIHubPage /></ProtectedRoute>} />
-          <Route path="*" element={<NotFound />} />
+          <Route path="/packaging-assemblies" element={<ProtectedRoute><PackagingAssembliesPage /></ProtectedRoute>} />
           <Route path="*" element={<NotFound />} />
         </Routes>
       </BrowserRouter>

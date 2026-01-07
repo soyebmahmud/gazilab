@@ -180,6 +180,7 @@ export type Database = {
           bom_layer: Database["public"]["Enums"]["bom_layer"] | null
           created_at: string
           id: string
+          packaging_assembly_id: string | null
           quantity_per_unit: number
           raw_material_id: string
           scales_with: Database["public"]["Enums"]["packaging_unit"] | null
@@ -190,6 +191,7 @@ export type Database = {
           bom_layer?: Database["public"]["Enums"]["bom_layer"] | null
           created_at?: string
           id?: string
+          packaging_assembly_id?: string | null
           quantity_per_unit?: number
           raw_material_id: string
           scales_with?: Database["public"]["Enums"]["packaging_unit"] | null
@@ -200,6 +202,7 @@ export type Database = {
           bom_layer?: Database["public"]["Enums"]["bom_layer"] | null
           created_at?: string
           id?: string
+          packaging_assembly_id?: string | null
           quantity_per_unit?: number
           raw_material_id?: string
           scales_with?: Database["public"]["Enums"]["packaging_unit"] | null
@@ -211,6 +214,13 @@ export type Database = {
             columns: ["bom_id"]
             isOneToOne: false
             referencedRelation: "bom"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "bom_items_packaging_assembly_id_fkey"
+            columns: ["packaging_assembly_id"]
+            isOneToOne: false
+            referencedRelation: "packaging_assemblies"
             referencedColumns: ["id"]
           },
           {
@@ -404,6 +414,84 @@ export type Database = {
             columns: ["category_id"]
             isOneToOne: false
             referencedRelation: "expense_categories"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      packaging_assemblies: {
+        Row: {
+          created_at: string
+          description: string | null
+          id: string
+          is_active: boolean
+          name: string
+          packaging_level: string
+          sku: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          description?: string | null
+          id?: string
+          is_active?: boolean
+          name: string
+          packaging_level?: string
+          sku: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          description?: string | null
+          id?: string
+          is_active?: boolean
+          name?: string
+          packaging_level?: string
+          sku?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      packaging_assembly_components: {
+        Row: {
+          assembly_id: string
+          created_at: string
+          id: string
+          is_optional: boolean
+          notes: string | null
+          quantity_per_assembly: number
+          raw_material_id: string
+        }
+        Insert: {
+          assembly_id: string
+          created_at?: string
+          id?: string
+          is_optional?: boolean
+          notes?: string | null
+          quantity_per_assembly?: number
+          raw_material_id: string
+        }
+        Update: {
+          assembly_id?: string
+          created_at?: string
+          id?: string
+          is_optional?: boolean
+          notes?: string | null
+          quantity_per_assembly?: number
+          raw_material_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "packaging_assembly_components_assembly_id_fkey"
+            columns: ["assembly_id"]
+            isOneToOne: false
+            referencedRelation: "packaging_assemblies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "packaging_assembly_components_raw_material_id_fkey"
+            columns: ["raw_material_id"]
+            isOneToOne: false
+            referencedRelation: "raw_materials"
             referencedColumns: ["id"]
           },
         ]
@@ -1423,6 +1511,23 @@ export type Database = {
           shelf: string
           warehouse: string
           wastage_quantity: number
+        }[]
+      }
+      get_expanded_bom_materials: {
+        Args: { p_bom_id: string; p_production_quantity: number }
+        Returns: {
+          assembly_name: string
+          base_quantity: number
+          bom_layer: string
+          cost_per_unit: number
+          is_from_assembly: boolean
+          material_name: string
+          material_sku: string
+          material_unit: string
+          raw_material_id: string
+          total_cost: number
+          total_required: number
+          wastage_percent: number
         }[]
       }
       get_expiry_alerts: {
