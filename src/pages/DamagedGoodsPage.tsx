@@ -12,12 +12,14 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { useDamagedGoods, usePendingDamagedGoods, useRestoreDamagedGoods, useDestroyDamagedGoods, useRecordProductDamage, DAMAGE_TYPES } from '@/hooks/useDamagedGoods';
+import { useDamagedComponents, useDamagedComponentsSummary } from '@/hooks/useDamagedComponents';
 import { useDailyDamageLoss, useMonthlyDamageLoss } from '@/hooks/useDamageFinancials';
 import { useProducts } from '@/hooks/useProducts';
 import { useProductBatches } from '@/hooks/useSales';
 import { format } from 'date-fns';
-import { RotateCcw, Trash2, Package, AlertTriangle, CheckCircle, Plus, Download, TrendingDown, IndianRupee } from 'lucide-react';
+import { RotateCcw, Trash2, Package, AlertTriangle, CheckCircle, Plus, Download, TrendingDown, IndianRupee, Layers, ChevronDown, ChevronRight } from 'lucide-react';
 
 const formatCurrency = (value: number) => `৳${value.toLocaleString('en-BD', { maximumFractionDigits: 2 })}`;
 
@@ -405,6 +407,10 @@ export default function DamagedGoodsPage() {
               Pending ({pendingCount})
             </TabsTrigger>
             <TabsTrigger value="all">All Records</TabsTrigger>
+            <TabsTrigger value="components" className="flex items-center gap-1">
+              <Layers className="h-4 w-4" />
+              Component Loss
+            </TabsTrigger>
           </TabsList>
           
           <TabsContent value="pending">
@@ -436,8 +442,133 @@ export default function DamagedGoodsPage() {
               </CardContent>
             </Card>
           </TabsContent>
+
+          <TabsContent value="components">
+            <ComponentLossTab />
+          </TabsContent>
         </Tabs>
       </div>
     </MainLayout>
+  );
+}
+
+// Component Loss Tab - Shows all affected packaging components
+function ComponentLossTab() {
+  const { data: componentsSummary, isLoading } = useDamagedComponentsSummary();
+  const { data: allComponents } = useDamagedComponents();
+  
+  const totalComponentLoss = componentsSummary?.reduce((sum, c) => sum + c.totalLoss, 0) || 0;
+
+  return (
+    <div className="space-y-4">
+      {/* Summary Card */}
+      <Card className="bg-destructive/5 border-destructive/20">
+        <CardHeader className="flex flex-row items-center justify-between pb-2">
+          <CardTitle className="text-sm font-medium">Total Component Loss</CardTitle>
+          <Layers className="h-4 w-4 text-destructive" />
+        </CardHeader>
+        <CardContent>
+          <div className="text-2xl font-bold text-destructive">
+            {formatCurrency(totalComponentLoss)}
+          </div>
+          <p className="text-xs text-muted-foreground">
+            From {componentsSummary?.length || 0} different components
+          </p>
+        </CardContent>
+      </Card>
+
+      {/* Component Summary Table */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <Layers className="h-5 w-5" />
+            Affected Packaging Components Summary
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          {isLoading ? (
+            <div className="text-center py-8 text-muted-foreground">Loading...</div>
+          ) : (
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Component</TableHead>
+                  <TableHead>SKU</TableHead>
+                  <TableHead className="text-right">Total Qty Affected</TableHead>
+                  <TableHead className="text-right">Total Loss Value</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {componentsSummary?.map((item) => (
+                  <TableRow key={item.sku}>
+                    <TableCell className="font-medium">{item.name}</TableCell>
+                    <TableCell>{item.sku}</TableCell>
+                    <TableCell className="text-right">{item.totalQty}</TableCell>
+                    <TableCell className="text-right font-medium text-destructive">
+                      {formatCurrency(item.totalLoss)}
+                    </TableCell>
+                  </TableRow>
+                ))}
+                {(!componentsSummary || componentsSummary.length === 0) && (
+                  <TableRow>
+                    <TableCell colSpan={4} className="text-center py-8 text-muted-foreground">
+                      No component damage tracked yet
+                    </TableCell>
+                  </TableRow>
+                )}
+              </TableBody>
+            </Table>
+          )}
+        </CardContent>
+      </Card>
+
+      {/* Detailed Component History */}
+      <Card>
+        <CardHeader>
+          <CardTitle>Component Damage History</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>Date</TableHead>
+                <TableHead>Assembly</TableHead>
+                <TableHead>Component</TableHead>
+                <TableHead>SKU</TableHead>
+                <TableHead className="text-right">Qty</TableHead>
+                <TableHead className="text-right">Loss</TableHead>
+                <TableHead>Source</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {allComponents?.map((item) => (
+                <TableRow key={item.id}>
+                  <TableCell>{format(new Date(item.created_at), 'dd MMM yyyy')}</TableCell>
+                  <TableCell>{item.assembly_name || '-'}</TableCell>
+                  <TableCell className="font-medium">{item.component_name}</TableCell>
+                  <TableCell>{item.component_sku}</TableCell>
+                  <TableCell className="text-right">{item.quantity_affected}</TableCell>
+                  <TableCell className="text-right text-destructive">
+                    {formatCurrency(item.loss_value)}
+                  </TableCell>
+                  <TableCell>
+                    <Badge variant="outline" className={item.source_type === 'damage' ? 'bg-destructive/10 text-destructive' : 'bg-amber-500/10 text-amber-600'}>
+                      {item.source_type === 'damage' ? 'Damage' : 'Return'}
+                    </Badge>
+                  </TableCell>
+                </TableRow>
+              ))}
+              {(!allComponents || allComponents.length === 0) && (
+                <TableRow>
+                  <TableCell colSpan={7} className="text-center py-8 text-muted-foreground">
+                    No component damage history
+                  </TableCell>
+                </TableRow>
+              )}
+            </TableBody>
+          </Table>
+        </CardContent>
+      </Card>
+    </div>
   );
 }
