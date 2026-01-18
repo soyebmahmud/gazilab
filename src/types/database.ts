@@ -53,12 +53,18 @@ export interface BOM {
   items?: BOMItem[];
 }
 
+export type BomLayer = 'api_excipient' | 'primary_packaging' | 'secondary_packaging' | 'tertiary_packaging';
+export type PackagingUnit = 'strip' | 'blister' | 'bottle' | 'vial' | 'ampoule' | 'tube' | 'jar' | 'sachet' | 'box' | 'carton' | 'shipper';
+
 export interface BOMItem {
   id: string;
   bom_id: string;
   raw_material_id: string;
   quantity_per_unit: number;
   wastage_percent: number;
+  bom_layer?: BomLayer;
+  scales_with?: PackagingUnit;
+  packaging_assembly_id?: string;
   created_at: string;
   raw_material?: RawMaterial;
 }

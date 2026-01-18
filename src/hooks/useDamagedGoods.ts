@@ -94,6 +94,7 @@ export function useRecordProductDamage() {
       queryClient.invalidateQueries({ queryKey: ['damaged-goods'] });
       queryClient.invalidateQueries({ queryKey: ['products'] });
       queryClient.invalidateQueries({ queryKey: ['stock-ledger-products'] });
+      queryClient.invalidateQueries({ queryKey: ['damaged-components'] });
       toast.success('Damage recorded and stock deducted');
     },
     onError: (error: Error) => {
@@ -107,6 +108,32 @@ export function useRestoreDamagedGoods() {
   
   return useMutation({
     mutationFn: async (damagedGoodsId: string) => {
+      // Pre-validation: Check if damaged goods exists and is pending
+      const { data: damagedGood, error: checkError } = await supabase
+        .from('damaged_goods')
+        .select('id, status, quantity, product_id, production_batch_id')
+        .eq('id', damagedGoodsId)
+        .single();
+      
+      if (checkError) throw new Error('Damaged goods record not found');
+      
+      if (damagedGood.status !== 'pending') {
+        throw new Error(`Cannot restore: Item is already ${damagedGood.status}`);
+      }
+      
+      // If production_batch_id exists, verify the batch still exists
+      if (damagedGood.production_batch_id) {
+        const { data: batch, error: batchError } = await supabase
+          .from('production_batches')
+          .select('id, status')
+          .eq('id', damagedGood.production_batch_id)
+          .maybeSingle();
+        
+        if (batchError || !batch) {
+          throw new Error('Original production batch no longer exists. Cannot restore to specific batch.');
+        }
+      }
+      
       const { error } = await supabase.rpc('restore_damaged_goods', {
         p_damaged_goods_id: damagedGoodsId,
       });
@@ -117,6 +144,9 @@ export function useRestoreDamagedGoods() {
       queryClient.invalidateQueries({ queryKey: ['damaged-goods'] });
       queryClient.invalidateQueries({ queryKey: ['products'] });
       queryClient.invalidateQueries({ queryKey: ['stock-ledger-products'] });
+      queryClient.invalidateQueries({ queryKey: ['raw-materials'] });
+      queryClient.invalidateQueries({ queryKey: ['stock-ledger-materials'] });
+      queryClient.invalidateQueries({ queryKey: ['damaged-components'] });
       toast.success('Item restored to sellable stock');
     },
     onError: (error: Error) => {
@@ -130,6 +160,19 @@ export function useDestroyDamagedGoods() {
   
   return useMutation({
     mutationFn: async ({ id, notes }: { id: string; notes?: string }) => {
+      // Pre-validation
+      const { data: damagedGood, error: checkError } = await supabase
+        .from('damaged_goods')
+        .select('id, status')
+        .eq('id', id)
+        .single();
+      
+      if (checkError) throw new Error('Damaged goods record not found');
+      
+      if (damagedGood.status !== 'pending') {
+        throw new Error(`Cannot destroy: Item is already ${damagedGood.status}`);
+      }
+      
       const { error } = await supabase.rpc('destroy_damaged_goods', {
         p_damaged_goods_id: id,
         p_notes: notes || null,

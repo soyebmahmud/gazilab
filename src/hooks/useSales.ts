@@ -98,6 +98,19 @@ interface CreateSaleData {
   }[];
 }
 
+interface ProcessedItem {
+  product_id: string;
+  production_batch_id?: string;
+  quantity: number;
+  unit_type: SaleUnitType;
+  unit_price: number;
+  discount_percent: number;
+  actual_quantity: number;
+  line_total: number;
+  product_name: string;
+  current_stock: number;
+}
+
 export function useCreateSale() {
   const queryClient = useQueryClient();
   
@@ -106,23 +119,25 @@ export function useCreateSale() {
       const isValid = await ensureValidSession();
       if (!isValid) throw new Error('Session expired. Please log in again.');
       
-      let invoiceNumber = data.manual_invoice_number?.trim();
-      
-      if (!invoiceNumber) {
-        const { data: generatedNumber, error: invoiceError } = await withJwtRefreshRetry(async () =>
-          await supabase.rpc('generate_invoice_number')
-        );
-        
-        if (invoiceError) throw invoiceError;
-        invoiceNumber = generatedNumber;
-      }
-      
+      // Step 1: Process items and validate stock BEFORE creating any records
+      const processedItems: ProcessedItem[] = [];
       let subtotal = 0;
-      const processedItems = [];
       
       for (const item of data.items) {
+        // Get product info including stock
+        const { data: product, error: productError } = await withJwtRefreshRetry(async () =>
+          await supabase
+            .from('products')
+            .select('current_stock, name')
+            .eq('id', item.product_id)
+            .single()
+        );
+        
+        if (productError) throw productError;
+        
         let actualQuantity = item.quantity;
         
+        // Convert units if not 'units'
         if (item.unit_type !== 'units') {
           const { data: packagingConfig } = await withJwtRefreshRetry(async () =>
             await supabase
@@ -145,7 +160,15 @@ export function useCreateSale() {
             if (converted && converted.length > 0) {
               actualQuantity = converted[0].total_units;
             }
+          } else {
+            // No packaging config found, throw error for non-unit types
+            throw new Error(`No packaging configuration found for ${product.name}. Cannot sell by ${item.unit_type}.`);
           }
+        }
+        
+        // Validate stock BEFORE proceeding
+        if (product.current_stock < actualQuantity) {
+          throw new Error(`Insufficient stock for ${product.name}. Required: ${actualQuantity}, Available: ${product.current_stock}`);
         }
         
         const lineTotal = item.quantity * item.unit_price * (1 - item.discount_percent / 100);
@@ -154,13 +177,29 @@ export function useCreateSale() {
         processedItems.push({
           ...item,
           actual_quantity: actualQuantity,
-          line_total: lineTotal
+          line_total: lineTotal,
+          product_name: product.name,
+          current_stock: product.current_stock
         });
       }
       
+      // Step 2: Generate invoice number
+      let invoiceNumber = data.manual_invoice_number?.trim();
+      
+      if (!invoiceNumber) {
+        const { data: generatedNumber, error: invoiceError } = await withJwtRefreshRetry(async () =>
+          await supabase.rpc('generate_invoice_number')
+        );
+        
+        if (invoiceError) throw invoiceError;
+        invoiceNumber = generatedNumber;
+      }
+      
+      // Step 3: Calculate totals
       const taxAmount = (subtotal - data.discount_amount) * (data.tax_percent / 100);
       const totalAmount = subtotal - data.discount_amount + taxAmount;
       
+      // Step 4: Create sale record
       const { data: sale, error: saleError } = await withJwtRefreshRetry(async () =>
         await supabase
           .from('sales')
@@ -182,6 +221,7 @@ export function useCreateSale() {
       
       if (saleError) throw saleError;
       
+      // Step 5: Insert sale items
       const { error: itemsError } = await withJwtRefreshRetry(async () =>
         await supabase
           .from('sale_items')
@@ -198,20 +238,15 @@ export function useCreateSale() {
           )
       );
       
-      if (itemsError) throw itemsError;
+      if (itemsError) {
+        // Rollback: delete the sale record
+        await supabase.from('sales').delete().eq('id', sale.id);
+        throw itemsError;
+      }
       
+      // Step 6: Insert stock ledger entries with correct balance_after
       for (const item of processedItems) {
-        const { data: product } = await withJwtRefreshRetry(async () =>
-          await supabase
-            .from('products')
-            .select('current_stock, name')
-            .eq('id', item.product_id)
-            .single()
-        );
-        
-        if (product && product.current_stock < item.actual_quantity) {
-          throw new Error(`Insufficient stock for ${product.name}. Required: ${item.actual_quantity}, Available: ${product.current_stock}`);
-        }
+        const newBalance = item.current_stock - item.actual_quantity;
         
         const { error: ledgerError } = await withJwtRefreshRetry(async () =>
           await supabase
@@ -223,13 +258,32 @@ export function useCreateSale() {
               reference_id: sale.id,
               reference_type: 'sale',
               notes: `Invoice: ${invoiceNumber} (${item.quantity} ${item.unit_type})`,
-              balance_after: 0
+              balance_after: newBalance
             })
         );
         
-        if (ledgerError) throw ledgerError;
+        if (ledgerError) {
+          // Rollback: delete sale items and sale
+          await supabase.from('sale_items').delete().eq('sale_id', sale.id);
+          await supabase.from('sales').delete().eq('id', sale.id);
+          throw ledgerError;
+        }
+        
+        // Update product stock
+        const { error: stockError } = await withJwtRefreshRetry(async () =>
+          await supabase
+            .from('products')
+            .update({ current_stock: newBalance })
+            .eq('id', item.product_id)
+        );
+        
+        if (stockError) {
+          // Log error but don't fail - trigger should handle this
+          console.error('Failed to update product stock:', stockError);
+        }
       }
       
+      // Step 7: Update customer outstanding balance
       if (data.customer_id) {
         const { data: customer, error: customerError } = await withJwtRefreshRetry(async () =>
           await supabase
@@ -239,16 +293,18 @@ export function useCreateSale() {
             .single()
         );
         
-        if (customerError) throw customerError;
-        
-        await withJwtRefreshRetry(async () =>
-          await supabase
-            .from('customers')
-            .update({ 
-              outstanding_balance: (customer.outstanding_balance || 0) + totalAmount 
-            })
-            .eq('id', data.customer_id)
-        );
+        if (customerError) {
+          console.error('Failed to fetch customer:', customerError);
+        } else {
+          await withJwtRefreshRetry(async () =>
+            await supabase
+              .from('customers')
+              .update({ 
+                outstanding_balance: (customer.outstanding_balance || 0) + totalAmount 
+              })
+              .eq('id', data.customer_id)
+          );
+        }
       }
       
       return sale;
