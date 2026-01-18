@@ -1,6 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
-import { BOM, BOMItem } from '@/types/database';
+import { BOM, BOMItem, BomLayer, PackagingUnit } from '@/types/database';
 import { toast } from 'sonner';
 
 export function useBOMs() {
@@ -94,10 +94,26 @@ export function useActiveBOM(productId: string) {
   });
 }
 
+// Helper function to determine BOM layer from material category
+function getBomLayerFromCategory(category: string): BomLayer {
+  switch (category) {
+    case 'packaging':
+      return 'primary_packaging';
+    case 'chemicals':
+    case 'herbs':
+    default:
+      return 'api_excipient';
+  }
+}
+
 interface CreateBOMData {
   product_id: string;
   notes?: string;
-  items: Omit<BOMItem, 'id' | 'bom_id' | 'created_at' | 'raw_material'>[];
+  items: (Omit<BOMItem, 'id' | 'bom_id' | 'created_at' | 'raw_material'> & {
+    bom_layer?: BomLayer;
+    scales_with?: PackagingUnit;
+    packaging_assembly_id?: string;
+  })[];
 }
 
 export function useCreateBOM() {
@@ -137,6 +153,15 @@ export function useCreateBOM() {
       
       // Add BOM items with layer support
       if (items.length > 0) {
+        // Fetch raw material categories to auto-assign bom_layer if not provided
+        const materialIds = items.map(i => i.raw_material_id);
+        const { data: materials } = await supabase
+          .from('raw_materials')
+          .select('id, category')
+          .in('id', materialIds);
+        
+        const materialCategoryMap = new Map(materials?.map(m => [m.id, m.category]) || []);
+        
         const { error: itemsError } = await supabase
           .from('bom_items')
           .insert(
@@ -145,7 +170,9 @@ export function useCreateBOM() {
               raw_material_id: item.raw_material_id,
               quantity_per_unit: item.quantity_per_unit,
               wastage_percent: item.wastage_percent,
-              bom_layer: (item as any).bom_layer || 'api_excipient',
+              bom_layer: item.bom_layer || getBomLayerFromCategory(materialCategoryMap.get(item.raw_material_id) || 'herbs'),
+              scales_with: item.scales_with || null,
+              packaging_assembly_id: item.packaging_assembly_id || null,
             }))
           );
         
@@ -194,7 +221,14 @@ export function useUpdateBOM() {
   const queryClient = useQueryClient();
   
   return useMutation({
-    mutationFn: async ({ id, items, ...updates }: Partial<BOM> & { id: string; items?: Omit<BOMItem, 'id' | 'bom_id' | 'created_at' | 'raw_material'>[] }) => {
+    mutationFn: async ({ id, items, ...updates }: Partial<BOM> & { 
+      id: string; 
+      items?: (Omit<BOMItem, 'id' | 'bom_id' | 'created_at' | 'raw_material'> & {
+        bom_layer?: BomLayer;
+        scales_with?: PackagingUnit;
+        packaging_assembly_id?: string;
+      })[];
+    }) => {
       // Update BOM
       const { data, error: bomError } = await supabase
         .from('bom')
@@ -210,8 +244,17 @@ export function useUpdateBOM() {
         // Delete existing items
         await supabase.from('bom_items').delete().eq('bom_id', id);
         
-        // Insert new items
+        // Insert new items with all fields preserved
         if (items.length > 0) {
+          // Fetch raw material categories to auto-assign bom_layer if not provided
+          const materialIds = items.map(i => i.raw_material_id);
+          const { data: materials } = await supabase
+            .from('raw_materials')
+            .select('id, category')
+            .in('id', materialIds);
+          
+          const materialCategoryMap = new Map(materials?.map(m => [m.id, m.category]) || []);
+          
           const { error: itemsError } = await supabase
             .from('bom_items')
             .insert(
@@ -219,7 +262,10 @@ export function useUpdateBOM() {
                 bom_id: id,
                 raw_material_id: item.raw_material_id,
                 quantity_per_unit: item.quantity_per_unit,
-                wastage_percent: item.wastage_percent
+                wastage_percent: item.wastage_percent,
+                bom_layer: item.bom_layer || getBomLayerFromCategory(materialCategoryMap.get(item.raw_material_id) || 'herbs'),
+                scales_with: item.scales_with || null,
+                packaging_assembly_id: item.packaging_assembly_id || null,
               }))
             );
           

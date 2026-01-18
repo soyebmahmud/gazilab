@@ -92,12 +92,30 @@ interface CreateAssemblyData {
   }[];
 }
 
-// Create new packaging assembly
+// Create new packaging assembly with transaction-like behavior
 export function useCreatePackagingAssembly() {
   const queryClient = useQueryClient();
   
   return useMutation({
     mutationFn: async ({ name, sku, description, packaging_level, components }: CreateAssemblyData) => {
+      // Validate components before creating assembly
+      if (components.length === 0) {
+        throw new Error('Assembly must have at least one component');
+      }
+      
+      // Validate all raw material IDs exist
+      const materialIds = components.map(c => c.raw_material_id);
+      const { data: materials, error: materialCheckError } = await supabase
+        .from('raw_materials')
+        .select('id')
+        .in('id', materialIds);
+      
+      if (materialCheckError) throw materialCheckError;
+      
+      if (materials.length !== materialIds.length) {
+        throw new Error('One or more raw materials not found');
+      }
+      
       // Create assembly
       const { data: assembly, error: assemblyError } = await supabase
         .from('packaging_assemblies')
@@ -108,20 +126,25 @@ export function useCreatePackagingAssembly() {
       if (assemblyError) throw assemblyError;
       
       // Add components
-      if (components.length > 0) {
-        const { error: componentsError } = await supabase
-          .from('packaging_assembly_components')
-          .insert(
-            components.map(c => ({
-              assembly_id: assembly.id,
-              raw_material_id: c.raw_material_id,
-              quantity_per_assembly: c.quantity_per_assembly,
-              is_optional: c.is_optional || false,
-              notes: c.notes
-            }))
-          );
-        
-        if (componentsError) throw componentsError;
+      const { error: componentsError } = await supabase
+        .from('packaging_assembly_components')
+        .insert(
+          components.map(c => ({
+            assembly_id: assembly.id,
+            raw_material_id: c.raw_material_id,
+            quantity_per_assembly: c.quantity_per_assembly,
+            is_optional: c.is_optional || false,
+            notes: c.notes
+          }))
+        );
+      
+      if (componentsError) {
+        // Rollback: delete the assembly if components failed
+        await supabase
+          .from('packaging_assemblies')
+          .delete()
+          .eq('id', assembly.id);
+        throw componentsError;
       }
       
       return assembly;
@@ -154,6 +177,11 @@ export function useUpdatePackagingAssembly() {
       is_active?: boolean;
       components?: CreateAssemblyData['components'] 
     }) => {
+      // Validate components if provided
+      if (components && components.length === 0) {
+        throw new Error('Assembly must have at least one component');
+      }
+      
       // Update assembly
       const { data, error: assemblyError } = await supabase
         .from('packaging_assemblies')
@@ -166,6 +194,19 @@ export function useUpdatePackagingAssembly() {
       
       // Update components if provided
       if (components) {
+        // Validate all raw material IDs exist
+        const materialIds = components.map(c => c.raw_material_id);
+        const { data: materials, error: materialCheckError } = await supabase
+          .from('raw_materials')
+          .select('id')
+          .in('id', materialIds);
+        
+        if (materialCheckError) throw materialCheckError;
+        
+        if (materials.length !== materialIds.length) {
+          throw new Error('One or more raw materials not found');
+        }
+        
         // Delete existing
         await supabase
           .from('packaging_assembly_components')

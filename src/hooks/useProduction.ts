@@ -85,6 +85,14 @@ interface CreateProductionData {
   notes?: string;
 }
 
+interface MaterialRequirement {
+  raw_material_id: string;
+  material_name: string;
+  material_unit: string;
+  required_quantity: number;
+  available_stock: number;
+}
+
 export function useCreateProduction() {
   const queryClient = useQueryClient();
   
@@ -93,7 +101,10 @@ export function useCreateProduction() {
       const isValid = await ensureValidSession();
       if (!isValid) throw new Error('Session expired. Please log in again.');
       
-      // Use hierarchical BOM to validate stock if packaging config is provided
+      // Use unified validation approach
+      const materialRequirements: MaterialRequirement[] = [];
+      
+      // Use hierarchical BOM if packaging config is provided, otherwise use standard BOM
       if (data.packaging_config_id) {
         const { data: hierarchicalBom, error: bomError } = await withJwtRefreshRetry(async () =>
           await supabase.rpc('get_hierarchical_bom', {
@@ -105,21 +116,18 @@ export function useCreateProduction() {
         
         if (bomError) throw bomError;
         
-        const insufficientMaterials: string[] = [];
         for (const item of hierarchicalBom || []) {
           const { data: availableStock } = await withJwtRefreshRetry(async () =>
             await supabase.rpc('get_available_material_stock', { p_material_id: item.raw_material_id })
           );
           
-          if ((availableStock || 0) < item.calculated_quantity) {
-            insufficientMaterials.push(
-              `${item.material_name}: Required ${item.calculated_quantity.toFixed(2)} ${item.material_unit}, Available ${(availableStock || 0).toFixed(2)} ${item.material_unit}`
-            );
-          }
-        }
-        
-        if (insufficientMaterials.length > 0) {
-          throw new Error(`Insufficient stock:\n${insufficientMaterials.join('\n')}`);
+          materialRequirements.push({
+            raw_material_id: item.raw_material_id,
+            material_name: item.material_name,
+            material_unit: item.material_unit,
+            required_quantity: item.calculated_quantity,
+            available_stock: availableStock || 0
+          });
         }
       } else {
         const { data: bomData, error: bomError } = await withJwtRefreshRetry(async () =>
@@ -141,10 +149,28 @@ export function useCreateProduction() {
         
         for (const item of items || []) {
           const requiredQty = item.quantity_per_unit * (1 + item.wastage_percent / 100) * data.quantity_planned;
-          if (item.raw_material && item.raw_material.current_stock < requiredQty) {
-            throw new Error(`Insufficient stock for ${item.raw_material.name}. Required: ${requiredQty.toFixed(3)}, Available: ${item.raw_material.current_stock}`);
-          }
+          
+          const { data: availableStock } = await withJwtRefreshRetry(async () =>
+            await supabase.rpc('get_available_material_stock', { p_material_id: item.raw_material_id })
+          );
+          
+          materialRequirements.push({
+            raw_material_id: item.raw_material_id,
+            material_name: item.raw_material?.name || 'Unknown',
+            material_unit: item.raw_material?.unit || 'pcs',
+            required_quantity: requiredQty,
+            available_stock: availableStock || 0
+          });
         }
+      }
+      
+      // Check for insufficient materials
+      const insufficientMaterials = materialRequirements
+        .filter(m => m.available_stock < m.required_quantity)
+        .map(m => `${m.material_name}: Required ${m.required_quantity.toFixed(2)} ${m.material_unit}, Available ${m.available_stock.toFixed(2)} ${m.material_unit}`);
+      
+      if (insufficientMaterials.length > 0) {
+        throw new Error(`Insufficient stock:\n${insufficientMaterials.join('\n')}`);
       }
       
       const { data: batch, error: batchError } = await withJwtRefreshRetry(async () =>
@@ -210,6 +236,17 @@ export function useStartProduction() {
       for (const item of items) {
         const deductQty = item.quantity_per_unit * (1 + item.wastage_percent / 100) * batch.quantity_planned;
         
+        // Get current stock for accurate balance_after
+        const { data: material } = await withJwtRefreshRetry(async () =>
+          await supabase
+            .from('raw_materials')
+            .select('current_stock')
+            .eq('id', item.raw_material_id)
+            .single()
+        );
+        
+        const newBalance = (material?.current_stock || 0) - deductQty;
+        
         const { error: ledgerError } = await withJwtRefreshRetry(async () =>
           await supabase
             .from('stock_ledger_materials')
@@ -220,11 +257,23 @@ export function useStartProduction() {
               reference_id: batchId,
               reference_type: 'production',
               notes: `Production batch: ${batch.batch_number}`,
-              balance_after: 0
+              balance_after: newBalance
             })
         );
         
         if (ledgerError) throw ledgerError;
+        
+        // Update raw material stock
+        const { error: stockError } = await withJwtRefreshRetry(async () =>
+          await supabase
+            .from('raw_materials')
+            .update({ current_stock: newBalance })
+            .eq('id', item.raw_material_id)
+        );
+        
+        if (stockError) {
+          console.error('Failed to update material stock:', stockError);
+        }
       }
       
       const { data: updatedBatch, error: updateError } = await withJwtRefreshRetry(async () =>
@@ -263,12 +312,15 @@ export function useCompleteProduction() {
       const { data: batch, error: batchError } = await withJwtRefreshRetry(async () =>
         await supabase
           .from('production_batches')
-          .select('*')
+          .select('*, product:products(current_stock)')
           .eq('id', batchId)
           .single()
       );
       
       if (batchError) throw batchError;
+      
+      const currentStock = batch.product?.current_stock || 0;
+      const newBalance = currentStock + quantityProduced;
       
       const { error: ledgerError } = await withJwtRefreshRetry(async () =>
         await supabase
@@ -280,11 +332,23 @@ export function useCompleteProduction() {
             reference_id: batchId,
             reference_type: 'production',
             notes: `Production batch: ${batch.batch_number}`,
-            balance_after: 0
+            balance_after: newBalance
           })
       );
       
       if (ledgerError) throw ledgerError;
+      
+      // Update product stock
+      const { error: stockError } = await withJwtRefreshRetry(async () =>
+        await supabase
+          .from('products')
+          .update({ current_stock: newBalance })
+          .eq('id', batch.product_id)
+      );
+      
+      if (stockError) {
+        console.error('Failed to update product stock:', stockError);
+      }
       
       const { data: updatedBatch, error: updateError } = await withJwtRefreshRetry(async () =>
         await supabase
