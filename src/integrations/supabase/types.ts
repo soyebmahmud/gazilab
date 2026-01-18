@@ -334,6 +334,68 @@ export type Database = {
           },
         ]
       }
+      damaged_packaging_components: {
+        Row: {
+          component_name: string
+          created_at: string
+          damaged_goods_id: string | null
+          id: string
+          packaging_assembly_id: string | null
+          quantity_affected: number
+          raw_material_id: string
+          sale_return_id: string | null
+        }
+        Insert: {
+          component_name: string
+          created_at?: string
+          damaged_goods_id?: string | null
+          id?: string
+          packaging_assembly_id?: string | null
+          quantity_affected?: number
+          raw_material_id: string
+          sale_return_id?: string | null
+        }
+        Update: {
+          component_name?: string
+          created_at?: string
+          damaged_goods_id?: string | null
+          id?: string
+          packaging_assembly_id?: string | null
+          quantity_affected?: number
+          raw_material_id?: string
+          sale_return_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "damaged_packaging_components_damaged_goods_id_fkey"
+            columns: ["damaged_goods_id"]
+            isOneToOne: false
+            referencedRelation: "damaged_goods"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "damaged_packaging_components_packaging_assembly_id_fkey"
+            columns: ["packaging_assembly_id"]
+            isOneToOne: false
+            referencedRelation: "packaging_assemblies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "damaged_packaging_components_raw_material_id_fkey"
+            columns: ["raw_material_id"]
+            isOneToOne: false
+            referencedRelation: "raw_materials"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "damaged_packaging_components_sale_return_id_fkey"
+            columns: ["sale_return_id"]
+            isOneToOne: false
+            referencedRelation: "sale_returns"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       expense_categories: {
         Row: {
           created_at: string
@@ -1446,7 +1508,37 @@ export type Database = {
       }
     }
     Views: {
-      [_ in never]: never
+      damaged_components_summary: {
+        Row: {
+          assembly_name: string | null
+          component_name: string | null
+          component_sku: string | null
+          cost_per_unit: number | null
+          created_at: string | null
+          damaged_goods_id: string | null
+          id: string | null
+          loss_value: number | null
+          quantity_affected: number | null
+          sale_return_id: string | null
+          source_type: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "damaged_packaging_components_damaged_goods_id_fkey"
+            columns: ["damaged_goods_id"]
+            isOneToOne: false
+            referencedRelation: "damaged_goods"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "damaged_packaging_components_sale_return_id_fkey"
+            columns: ["sale_return_id"]
+            isOneToOne: false
+            referencedRelation: "sale_returns"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Functions: {
       calculate_packaging_units: {
@@ -1595,6 +1687,17 @@ export type Database = {
           expiry_date: string
           manufacturing_date: string
           quantity_available: number
+        }[]
+      }
+      get_product_packaging_assemblies: {
+        Args: { p_product_id: string }
+        Returns: {
+          assembly_id: string
+          assembly_name: string
+          component_id: string
+          component_name: string
+          component_sku: string
+          quantity_per_assembly: number
         }[]
       }
       get_stock_summary: {
