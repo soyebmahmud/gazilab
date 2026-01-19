@@ -15,6 +15,7 @@ import { useBOMs, useBOM, useCreateBOM, useProductsWithoutBOM } from '@/hooks/us
 import { useProducts } from '@/hooks/useProducts';
 import { useRawMaterials } from '@/hooks/useRawMaterials';
 import { Plus, Eye, X, Copy, Search, Package, Beaker, Box, Truck } from 'lucide-react';
+import { toast } from 'sonner';
 import { BOMLayer, BOM_LAYER_LABELS, BOM_LAYER_DESCRIPTIONS } from '@/types/packaging';
 
 interface BOMItemForm {
@@ -81,7 +82,16 @@ function CreateBOMDialog({ onClose, existingProductId }: { onClose: () => void; 
 
   const updateBomItem = (index: number, field: keyof BOMItemForm, value: string | number) => {
     const updated = [...bomItems];
-    updated[index] = { ...updated[index], [field]: value };
+    // Ensure numeric values are valid and within limits
+    if (field === 'quantity_per_unit') {
+      const numValue = parseFloat(String(value));
+      updated[index] = { ...updated[index], [field]: isNaN(numValue) ? 0 : Math.min(numValue, 99999999) };
+    } else if (field === 'wastage_percent') {
+      const numValue = parseFloat(String(value));
+      updated[index] = { ...updated[index], [field]: isNaN(numValue) ? 0 : Math.min(Math.max(numValue, 0), 100) };
+    } else {
+      updated[index] = { ...updated[index], [field]: value };
+    }
     setBomItems(updated);
   };
 
@@ -100,19 +110,27 @@ function CreateBOMDialog({ onClose, existingProductId }: { onClose: () => void; 
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    const validItems = bomItems.filter(item => item.raw_material_id && item.quantity_per_unit > 0);
+    // Filter and validate items - ensure values are valid numbers within database limits
+    const validItems = bomItems
+      .filter(item => item.raw_material_id && item.quantity_per_unit > 0)
+      .map(item => ({
+        raw_material_id: item.raw_material_id,
+        // Clamp quantity to reasonable limits: numeric(12,4) max is 99999999.9999
+        quantity_per_unit: Math.min(Math.max(Number(item.quantity_per_unit) || 0, 0), 99999999),
+        // Clamp wastage to valid range: numeric(5,2) max is 999.99, but logically 0-100%
+        wastage_percent: Math.min(Math.max(Number(item.wastage_percent) || 0, 0), 100),
+        bom_layer: item.bom_layer,
+      }));
+    
     if (validItems.length === 0) {
+      toast.error('অন্তত একটি ম্যাটেরিয়াল যোগ করুন');
       return;
     }
+    
     await createBOM.mutateAsync({
       product_id: productId,
       notes,
-      items: validItems.map(item => ({
-        raw_material_id: item.raw_material_id,
-        quantity_per_unit: item.quantity_per_unit,
-        wastage_percent: item.wastage_percent,
-        bom_layer: item.bom_layer,
-      }))
+      items: validItems
     });
     onClose();
   };
