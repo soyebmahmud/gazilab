@@ -59,13 +59,13 @@ export function BankTransactionReport() {
   const today = format(new Date(), 'yyyy-MM-dd');
   const monthStart = format(startOfMonth(new Date()), 'yyyy-MM-dd');
   
-  const [selectedBank, setSelectedBank] = useState('');
+  const [selectedBank, setSelectedBank] = useState('all');
   const [dateFrom, setDateFrom] = useState(monthStart);
   const [dateTo, setDateTo] = useState(today);
   
   const { data: bankAccounts, isLoading: loadingAccounts } = useBankAccounts();
   const { data: transactions, isLoading: loadingTransactions } = useBankTransactions(
-    selectedBank || undefined, 
+    selectedBank === 'all' ? undefined : selectedBank, 
     dateFrom, 
     dateTo
   );
@@ -122,7 +122,7 @@ export function BankTransactionReport() {
               <SelectValue placeholder="সব ব্যাংক" />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="">সব ব্যাংক</SelectItem>
+              <SelectItem value="all">সব ব্যাংক</SelectItem>
               {bankAccounts?.map((bank) => (
                 <SelectItem key={bank.id} value={bank.id}>
                   {bank.bank_name} - {bank.account_name}
