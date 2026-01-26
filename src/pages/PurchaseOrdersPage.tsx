@@ -5,13 +5,15 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogDescription } from '@/components/ui/dialog';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
 import { usePurchaseOrders, useCreatePurchaseOrder, useReceivePOItems, useUpdatePOStatus } from '@/hooks/usePurchaseOrders';
+import { usePurchaseOrderPayments, useAddPOPayment } from '@/hooks/usePurchaseOrderPayments';
+import { useBankAccounts } from '@/hooks/useBankAccounts';
 import { useRawMaterials } from '@/hooks/useRawMaterials';
 import { useSellers } from '@/hooks/useSellers';
-import { Plus, X, FileText, Eye, Package, Truck, CheckCircle } from 'lucide-react';
+import { Plus, X, FileText, Eye, Package, Truck, CheckCircle, CreditCard, Wallet, Banknote, Smartphone } from 'lucide-react';
 import { useState } from 'react';
 import { format } from 'date-fns';
 
@@ -340,6 +342,237 @@ function ReceiveItemsDialog({ po, onClose }: { po: any; onClose: () => void }) {
   );
 }
 
+// Payment Dialog Component
+function POPaymentDialog({ po, onClose }: { po: any; onClose: () => void }) {
+  const { data: payments, isLoading: loadingPayments } = usePurchaseOrderPayments(po.id);
+  const { data: bankAccounts } = useBankAccounts();
+  const addPayment = useAddPOPayment();
+  
+  const [paymentAmount, setPaymentAmount] = useState(0);
+  const [paymentMethod, setPaymentMethod] = useState('cash');
+  const [paymentDate, setPaymentDate] = useState(format(new Date(), 'yyyy-MM-dd'));
+  const [bankAccountId, setBankAccountId] = useState('');
+  const [paymentNote, setPaymentNote] = useState('');
+
+  const totalPaid = Number(po.paid_amount) || 0;
+  const dueAmount = Number(po.total_amount) - totalPaid;
+
+  const handleAddPayment = async () => {
+    if (paymentAmount <= 0) return;
+    
+    await addPayment.mutateAsync({
+      purchase_order_id: po.id,
+      amount: paymentAmount,
+      payment_method: paymentMethod,
+      payment_date: paymentDate,
+      bank_account_id: paymentMethod === 'bank' ? bankAccountId || undefined : undefined,
+      reference_note: paymentNote || undefined
+    });
+    
+    setPaymentAmount(0);
+    setPaymentNote('');
+  };
+
+  const paymentMethodIcons: Record<string, any> = {
+    cash: Banknote,
+    bank: CreditCard,
+    mobile: Smartphone,
+    credit: Wallet
+  };
+
+  return (
+    <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+      <DialogHeader>
+        <DialogTitle className="flex items-center gap-2">
+          <CreditCard className="h-5 w-5" />
+          Payment - {po.order_number}
+        </DialogTitle>
+        <DialogDescription>
+          Record and track payments for this purchase order
+        </DialogDescription>
+      </DialogHeader>
+
+      <div className="space-y-6">
+        {/* Payment Summary */}
+        <div className="grid grid-cols-3 gap-4">
+          <div className="p-4 rounded-lg bg-accent/50 text-center">
+            <p className="text-sm text-muted-foreground">Total Amount</p>
+            <p className="text-xl font-bold">৳{Number(po.total_amount).toLocaleString()}</p>
+          </div>
+          <div className="p-4 rounded-lg bg-primary/10 text-center">
+            <p className="text-sm text-muted-foreground">Total Paid</p>
+            <p className="text-xl font-bold text-primary">৳{totalPaid.toLocaleString()}</p>
+          </div>
+          <div className={`p-4 rounded-lg text-center ${dueAmount > 0 ? 'bg-destructive/10' : 'bg-green-500/10'}`}>
+            <p className="text-sm text-muted-foreground">Due Amount</p>
+            <p className={`text-xl font-bold ${dueAmount > 0 ? 'text-destructive' : 'text-green-500'}`}>
+              ৳{dueAmount.toLocaleString()}
+            </p>
+          </div>
+        </div>
+
+        {/* Seller Info */}
+        {po.seller && (
+          <div className="p-3 border rounded-lg">
+            <p className="text-sm text-muted-foreground">Seller</p>
+            <p className="font-medium">{po.seller.name}</p>
+            {po.seller.phone && <p className="text-sm text-muted-foreground">{po.seller.phone}</p>}
+          </div>
+        )}
+
+        {/* Add Payment Form */}
+        {dueAmount > 0 && (
+          <div className="p-4 border rounded-lg space-y-4 bg-accent/30">
+            <h4 className="font-medium flex items-center gap-2">
+              <Plus className="h-4 w-4" />
+              Record Payment
+            </h4>
+            
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label>Amount (৳)</Label>
+                <Input
+                  type="number"
+                  step="0.01"
+                  value={paymentAmount || ''}
+                  onChange={(e) => setPaymentAmount(parseFloat(e.target.value) || 0)}
+                  placeholder="Enter amount"
+                />
+                <Button 
+                  type="button" 
+                  variant="outline" 
+                  size="sm"
+                  onClick={() => setPaymentAmount(dueAmount)}
+                  className="w-full"
+                >
+                  Pay Full Due (৳{dueAmount.toLocaleString()})
+                </Button>
+              </div>
+              
+              <div className="space-y-2">
+                <Label>Payment Method</Label>
+                <Select value={paymentMethod} onValueChange={setPaymentMethod}>
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="cash">
+                      <span className="flex items-center gap-2">
+                        <Banknote className="h-4 w-4" /> Cash
+                      </span>
+                    </SelectItem>
+                    <SelectItem value="bank">
+                      <span className="flex items-center gap-2">
+                        <CreditCard className="h-4 w-4" /> Bank Transfer
+                      </span>
+                    </SelectItem>
+                    <SelectItem value="mobile">
+                      <span className="flex items-center gap-2">
+                        <Smartphone className="h-4 w-4" /> Mobile Banking
+                      </span>
+                    </SelectItem>
+                    <SelectItem value="credit">
+                      <span className="flex items-center gap-2">
+                        <Wallet className="h-4 w-4" /> Credit
+                      </span>
+                    </SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              
+              <div className="space-y-2">
+                <Label>Payment Date</Label>
+                <Input
+                  type="date"
+                  value={paymentDate}
+                  onChange={(e) => setPaymentDate(e.target.value)}
+                />
+              </div>
+              
+              {paymentMethod === 'bank' && (
+                <div className="space-y-2">
+                  <Label>Bank Account</Label>
+                  <Select value={bankAccountId} onValueChange={setBankAccountId}>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select bank" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {bankAccounts?.map(bank => (
+                        <SelectItem key={bank.id} value={bank.id}>
+                          {bank.bank_name} - {bank.account_name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              )}
+              
+              <div className="col-span-2 space-y-2">
+                <Label>Reference/Note</Label>
+                <Input
+                  value={paymentNote}
+                  onChange={(e) => setPaymentNote(e.target.value)}
+                  placeholder="Transaction ID, cheque no, etc."
+                />
+              </div>
+            </div>
+            
+            <Button 
+              onClick={handleAddPayment} 
+              disabled={paymentAmount <= 0 || addPayment.isPending}
+              className="w-full"
+            >
+              <CreditCard className="h-4 w-4 mr-2" />
+              Record Payment
+            </Button>
+          </div>
+        )}
+
+        {/* Payment History */}
+        <div className="space-y-3">
+          <h4 className="font-medium">Payment History</h4>
+          
+          {loadingPayments ? (
+            <p className="text-sm text-muted-foreground text-center py-4">Loading...</p>
+          ) : payments?.length === 0 ? (
+            <p className="text-sm text-muted-foreground text-center py-4 border rounded-lg">
+              No payments recorded yet
+            </p>
+          ) : (
+            <div className="space-y-2">
+              {payments?.map((payment) => {
+                const Icon = paymentMethodIcons[payment.payment_method] || Wallet;
+                return (
+                  <div key={payment.id} className="flex items-center justify-between p-3 border rounded-lg">
+                    <div className="flex items-center gap-3">
+                      <div className="p-2 rounded-full bg-primary/10">
+                        <Icon className="h-4 w-4 text-primary" />
+                      </div>
+                      <div>
+                        <p className="font-medium">৳{Number(payment.amount).toLocaleString()}</p>
+                        <p className="text-xs text-muted-foreground">
+                          {format(new Date(payment.payment_date), 'dd MMM yyyy')} • {payment.payment_method}
+                        </p>
+                        {payment.reference_note && (
+                          <p className="text-xs text-muted-foreground">{payment.reference_note}</p>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </div>
+
+        <div className="flex justify-end pt-4 border-t">
+          <Button variant="outline" onClick={onClose}>Close</Button>
+        </div>
+      </div>
+    </DialogContent>
+  );
+}
+
 const statusColors: Record<string, string> = {
   pending: 'bg-secondary',
   approved: 'bg-blue-500',
@@ -347,10 +580,17 @@ const statusColors: Record<string, string> = {
   cancelled: 'bg-destructive'
 };
 
+const paymentStatusColors: Record<string, string> = {
+  pending: 'bg-destructive text-destructive-foreground',
+  partial: 'bg-amber-500 text-white',
+  paid: 'bg-green-500 text-white'
+};
+
 export default function PurchaseOrdersPage() {
   const { data: orders, isLoading } = usePurchaseOrders();
   const [dialogOpen, setDialogOpen] = useState(false);
   const [receiveDialogPO, setReceiveDialogPO] = useState<any>(null);
+  const [paymentDialogPO, setPaymentDialogPO] = useState<any>(null);
 
   return (
     <MainLayout>
@@ -388,41 +628,66 @@ export default function PurchaseOrdersPage() {
                     <TableHead>PO #</TableHead>
                     <TableHead>Seller</TableHead>
                     <TableHead>Date</TableHead>
-                    <TableHead className="text-right">Items</TableHead>
                     <TableHead className="text-right">Total</TableHead>
+                    <TableHead className="text-right">Paid</TableHead>
+                    <TableHead className="text-right">Due</TableHead>
                     <TableHead>Status</TableHead>
+                    <TableHead>Payment</TableHead>
                     <TableHead className="text-right">Actions</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {orders?.map((order) => (
-                    <TableRow key={order.id}>
-                      <TableCell className="font-mono font-medium">{order.order_number}</TableCell>
-                      <TableCell>{order.seller?.name || 'No Seller'}</TableCell>
-                      <TableCell>{format(new Date(order.order_date), 'dd MMM yyyy')}</TableCell>
-                      <TableCell className="text-right">{order.items?.length || 0}</TableCell>
-                      <TableCell className="text-right font-medium">৳{Number(order.total_amount).toLocaleString()}</TableCell>
-                      <TableCell>
-                        <Badge className={statusColors[order.status] || 'bg-secondary'}>
-                          {order.status}
-                        </Badge>
-                      </TableCell>
-                      <TableCell className="text-right">
-                        <div className="flex justify-end gap-1">
-                          {order.status === 'pending' && (
+                  {orders?.map((order: any) => {
+                    const paidAmount = Number(order.paid_amount) || 0;
+                    const totalAmount = Number(order.total_amount) || 0;
+                    const dueAmount = totalAmount - paidAmount;
+                    const paymentStatus = order.payment_status || 'pending';
+                    
+                    return (
+                      <TableRow key={order.id}>
+                        <TableCell className="font-mono font-medium">{order.order_number}</TableCell>
+                        <TableCell>{order.seller?.name || 'No Seller'}</TableCell>
+                        <TableCell>{format(new Date(order.order_date), 'dd MMM yyyy')}</TableCell>
+                        <TableCell className="text-right font-medium">৳{totalAmount.toLocaleString()}</TableCell>
+                        <TableCell className="text-right text-primary font-medium">৳{paidAmount.toLocaleString()}</TableCell>
+                        <TableCell className={`text-right font-medium ${dueAmount > 0 ? 'text-destructive' : 'text-green-500'}`}>
+                          ৳{dueAmount.toLocaleString()}
+                        </TableCell>
+                        <TableCell>
+                          <Badge className={statusColors[order.status] || 'bg-secondary'}>
+                            {order.status}
+                          </Badge>
+                        </TableCell>
+                        <TableCell>
+                          <Badge className={paymentStatusColors[paymentStatus]}>
+                            {paymentStatus === 'paid' ? 'Paid' : paymentStatus === 'partial' ? 'Partial' : 'Unpaid'}
+                          </Badge>
+                        </TableCell>
+                        <TableCell className="text-right">
+                          <div className="flex justify-end gap-1">
                             <Button 
                               size="sm" 
                               variant="outline"
-                              onClick={() => setReceiveDialogPO(order)}
+                              onClick={() => setPaymentDialogPO(order)}
                             >
-                              <Truck className="h-4 w-4 mr-1" />
-                              Receive
+                              <CreditCard className="h-4 w-4 mr-1" />
+                              Payment
                             </Button>
-                          )}
-                        </div>
-                      </TableCell>
-                    </TableRow>
-                  ))}
+                            {order.status === 'pending' && (
+                              <Button 
+                                size="sm" 
+                                variant="outline"
+                                onClick={() => setReceiveDialogPO(order)}
+                              >
+                                <Truck className="h-4 w-4 mr-1" />
+                                Receive
+                              </Button>
+                            )}
+                          </div>
+                        </TableCell>
+                      </TableRow>
+                    );
+                  })}
                 </TableBody>
               </Table>
             )}
@@ -431,6 +696,10 @@ export default function PurchaseOrdersPage() {
 
         <Dialog open={!!receiveDialogPO} onOpenChange={(open) => !open && setReceiveDialogPO(null)}>
           {receiveDialogPO && <ReceiveItemsDialog po={receiveDialogPO} onClose={() => setReceiveDialogPO(null)} />}
+        </Dialog>
+
+        <Dialog open={!!paymentDialogPO} onOpenChange={(open) => !open && setPaymentDialogPO(null)}>
+          {paymentDialogPO && <POPaymentDialog po={paymentDialogPO} onClose={() => setPaymentDialogPO(null)} />}
         </Dialog>
       </div>
     </MainLayout>
