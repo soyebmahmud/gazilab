@@ -886,6 +886,54 @@ export type Database = {
           },
         ]
       }
+      purchase_order_payments: {
+        Row: {
+          amount: number
+          bank_account_id: string | null
+          created_at: string
+          id: string
+          payment_date: string
+          payment_method: string
+          purchase_order_id: string
+          reference_note: string | null
+        }
+        Insert: {
+          amount: number
+          bank_account_id?: string | null
+          created_at?: string
+          id?: string
+          payment_date?: string
+          payment_method?: string
+          purchase_order_id: string
+          reference_note?: string | null
+        }
+        Update: {
+          amount?: number
+          bank_account_id?: string | null
+          created_at?: string
+          id?: string
+          payment_date?: string
+          payment_method?: string
+          purchase_order_id?: string
+          reference_note?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "purchase_order_payments_bank_account_id_fkey"
+            columns: ["bank_account_id"]
+            isOneToOne: false
+            referencedRelation: "bank_accounts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "purchase_order_payments_purchase_order_id_fkey"
+            columns: ["purchase_order_id"]
+            isOneToOne: false
+            referencedRelation: "purchase_orders"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       purchase_orders: {
         Row: {
           created_at: string
@@ -895,6 +943,8 @@ export type Database = {
           notes: string | null
           order_date: string
           order_number: string
+          paid_amount: number
+          payment_status: string
           seller_id: string | null
           status: string
           subtotal: number
@@ -911,6 +961,8 @@ export type Database = {
           notes?: string | null
           order_date?: string
           order_number: string
+          paid_amount?: number
+          payment_status?: string
           seller_id?: string | null
           status?: string
           subtotal?: number
@@ -927,6 +979,8 @@ export type Database = {
           notes?: string | null
           order_date?: string
           order_number?: string
+          paid_amount?: number
+          payment_status?: string
           seller_id?: string | null
           status?: string
           subtotal?: number
